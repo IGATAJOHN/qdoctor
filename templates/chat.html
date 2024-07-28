@@ -1,0 +1,68 @@
+{%extends 'index2.html'%}
+{%block content%}
+<main id="main">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12">
+                <h3>Chat with Dr. {{ doctor.first_name }} {{ doctor.last_name }}</h3>
+                
+                    <div class="chat-box" id="chat-box">
+                        {% for message in messages %}
+                            <div class="chat-message">{{ message.message }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                
+                <div class="input-group mt-3">
+                    <input type="text" id="chat-input" class="form-control" placeholder="Type a message">
+                    <button class="btn btn-primary" id="send-chat-btn">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+    <script>
+        const doctorId = "{{ doctor.id }}";
+    </script>
+    <script>
+        const socket = io();
+
+        document.getElementById('send-chat-btn').addEventListener('click', async () => {
+    const messageInput = document.getElementById('chat-input');
+    const message = messageInput.value.trim();
+
+    if (message) {
+        const response = await fetch('/send_message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                doctor_id: doctorId,
+                message: message
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            // Update the chat box with the new message
+            const chatBox = document.getElementById('chat-box');
+            chatBox.innerHTML += `<div class="chat-message">${message}</div>`;
+            messageInput.value = ''; // Clear the input
+        } else {
+            alert('Failed to send message: ' + result.error);
+        }
+    }
+});
+
+socket.on('receive_message', (data) => {
+    const chatBox = document.getElementById('chat-box');
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message');
+    messageElement.innerHTML = `<strong>${data.sender_id}</strong>: ${data.content} <small>${new Date(data.timestamp).toLocaleTimeString()}</small>`;
+    chatBox.appendChild(messageElement);
+    chatBox.scrollTop = chatBox.scrollHeight;
+});
+
+    </script>
+{%endblock content%}

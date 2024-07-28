@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <script src="https://kit.fontawesome.com/yourkit.js" crossorigin="anonymous"></script>
+</head>
+<body class="bg-gray-100 h-screen flex justify-center items-center">
+    <div class="flex flex-col md:flex-row w-full md:w-3/4 lg:w-2/3 h-full md:h-3/4 bg-white rounded-lg overflow-hidden shadow-lg">
+        <div class="md:w-1/2 p-6 md:p-12 bg-blue-200 flex flex-col items-center justify-center">
+            <img src="{{url_for('static',filename='assets/img/n.png')}}" alt="Doctor Illustration" class="w-48 md:w-64">
+            <p class="text-gray-700 text-center text-lg mb-4">Step into a healthier you with our AI doctor at your fingertips.</p>
+            <p class="text-gray-700 text-center">Already have an account? <a href="{{ url_for('login') }}" class="text-blue-500 hover:underline">Log In</a></p>
+        </div>
+        <div class="md:w-1/2 p-6 md:p-12 overflow-y-auto max-h-screen">
+            <div class="flex justify-center mb-6 mt-6 md:mt-0">
+                <img src="{{url_for('static',filename='assets/img/q12.png')}}" alt="Quantum Doctor Logo" class="h-24 w-auto">
+            </div>
+            <h2 class="text-2xl text-center text-blue-800 mb-6">Create an account</h2>
+            <form method="POST" action="{{ url_for('register') }}" enctype="multipart/form-data">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="first_name" class="block text-gray-700">First name</label>
+                        <input type="text" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="first_name" name="first_name" required>
+                    </div>
+                    <div>
+                        <label for="last_name" class="block text-gray-700">Last name</label>
+                        <input type="text" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="last_name" name="last_name" required>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="email" class="block text-gray-700">Email address</label>
+                        <input type="email" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="email" name="email" required>
+                    </div>
+                    <div>
+                        <label for="contact" class="block text-gray-700">Contact</label>
+                        <input type="text" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="contact" name="contact">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="password" class="block text-gray-700">Password</label>
+                        <input type="password" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="password" name="password" required>
+                    </div>
+                    <div>
+                        <label for="confirm_password" class="block text-gray-700">Confirm Password</label>
+                        <input type="password" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="confirm_password" name="confirm_password" required>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="doctorAvatar" class="block text-gray-700">Photo</label>
+                        <input type="file" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="doctorAvatar" name="doctorAvatar">
+                    </div>
+                    <div>
+                        <label for="role" class="block text-gray-700">Role</label>
+                        <select id="role" name="role" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" required>
+                            <option value="user">User</option>
+                            <option value="doctor">Doctor</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="doctorFields" class="mb-4" style="display: none;">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="specialization" class="block text-gray-700">Specialization</label>
+                            <input type="text" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="specialization" name="specialization">
+                        </div>
+                        <div>
+                            <label for="location" class="block text-gray-700">Location</label>
+                            <input type="text" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="location" name="location">
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200">Register</button>
+            </form>
+        </div>
+    </div>
+    <script>
+        document.getElementById('role').addEventListener('change', function () {
+            var doctorFields = document.getElementById('doctorFields');
+            if (this.value === 'doctor') {
+                doctorFields.style.display = 'block';
+            } else {
+                doctorFields.style.display = 'none';
+            }
+        });
+
+        document.getElementById('togglePassword').addEventListener('click', function () {
+            const passwordField = document.getElementById('password');
+            const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordField.setAttribute('type', type);
+            this.classList.toggle('fa-eye-slash');
+            this.classList.toggle('fa-eye');
+        });
+    </script>
+</body>
+</html>

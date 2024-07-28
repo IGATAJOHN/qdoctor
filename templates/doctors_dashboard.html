@@ -1,0 +1,180 @@
+{% extends 'index.html' %}
+{% block content %}
+<style>
+    body {
+        overflow-x: hidden;
+        margin: auto;
+        font-family: Arial, sans-serif;
+    }
+
+    .banner {
+        background: linear-gradient(45deg, #4e54c8, #8f94fb);
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        color: white;
+        margin-bottom: 30px;
+        width: 90%;
+        animation: fadeInDown 1s ease-in-out;
+    }
+
+    .banner h1, .banner h2 {
+        margin: 0;
+        padding: 0;
+    }
+
+    @keyframes fadeInDown {
+        0% {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        100% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-body {
+        padding: 20px;
+    }
+
+    .appointments-container {
+        width: 90%;
+        margin: auto;
+        margin-left: 0px;
+    }
+
+    .img-fluid {
+        object-fit: cover;
+        cursor: pointer;
+    }
+
+    .badge {
+        font-size: 1em;
+    }
+
+    .card-text {
+        display: block;
+    }
+
+    .text-center {
+        text-align: center;
+    }
+
+    @media (max-width: 768px) {
+        .card {
+            margin-bottom: 20px;
+        }
+        .banner {
+        background: linear-gradient(45deg, #4e54c8, #8f94fb);
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        color: white;
+        margin-bottom: 30px;
+        margin-left: 15px;
+        width: 90%;
+     
+        animation: fadeInDown 1s ease-in-out;
+    }
+    .appointments-container {
+        width: 90%;
+        margin: auto;
+        margin-left: 15px;
+    }
+    }
+</style>
+<main id="main" class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-12">
+            <div class="banner text-center">
+                <h1>Welcome, Dr. {{ current_user.first_name }} {{ current_user.last_name }}</h1>
+                <h2>Your Appointments</h2>
+            </div>
+        </div>
+
+        <section class="col-12">
+            <div class="appointments-container">
+                <div class="row">
+                    {% for appointment in appointments %}
+                    <div class="col-lg-4 col-md-6 col-sm-12 mb-4">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <img src="{{ url_for('static', filename=appointment.patient_avatar) }}" 
+                                     alt="Patient Avatar" 
+                                     class="img-fluid rounded-circle mb-3" 
+                                     style="width: 60px; height: 60px;" 
+                                     data-bs-toggle="modal" data-bs-target="#appointmentModal" 
+                                     data-name="{{ appointment.patient_name }}" 
+                                     data-date="{{ appointment.date }}" 
+                                     data-time="{{ appointment.time }}" 
+                                     data-status="{{ appointment.status }}">
+                                <h5 class="card-title">{{ appointment.patient_name }}</h5>
+                                <p class="card-text">
+                                    <strong>Date:</strong> {{ appointment.date }}<br>
+                                    <strong>Time:</strong> {{ appointment.time }}<br>
+                                    <strong>Contact:</strong> {{ appointment.patient_contact }}<br>
+                                    <strong>Status:</strong> <span class="badge bg-warning text-dark">{{ appointment.status }}</span>
+                                    <form action="{{ url_for('update_appointment_status') }}" method="POST">
+                                        <input type="hidden" name="appointment_id" value="{{ appointment._id }}">
+                                        <select name="status" class="form-select mb-2">
+                                            <option value="pending" {% if appointment.status == 'pending' %}selected{% endif %}>Pending</option>
+                                            <option value="confirmed" {% if appointment.status == 'confirmed' %}selected{% endif %}>Confirmed</option>
+                                            <option value="completed" {% if appointment.status == 'completed' %}selected{% endif %}>Completed</option>
+                                        </select>
+                                        <button type="submit" class="btn btn-primary btn-sm">Update Status</button>
+                                    </form>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div class="modal fade" id="appointmentModal" tabindex="-1" aria-labelledby="appointmentModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="appointmentModalLabel">Appointment Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Appointment details will be dynamically inserted here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary">Save changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const appointmentImages = document.querySelectorAll('.img-fluid');
+
+        appointmentImages.forEach(img => {
+            img.addEventListener('click', function() {
+                const modalBody = document.querySelector('#appointmentModal .modal-body');
+                const patientName = this.getAttribute('data-name');
+                const appointmentDate = this.getAttribute('data-date');
+                const appointmentTime = this.getAttribute('data-time');
+                const appointmentStatus = this.getAttribute('data-status');
+                modalBody.innerHTML = `<h5>${patientName}</h5>
+                                       <p><strong>Date:</strong> ${appointmentDate}</p>
+                                       <p><strong>Time:</strong> ${appointmentTime}</p>
+                                       <p><strong>Status:</strong> ${appointmentStatus}</p>`;
+            });
+        });
+    });
+</script>
+{% endblock content %}

@@ -1,0 +1,9 @@
+flask
+gunicorn
+flask_login
+flask_session
+flask_mail
+pymongo
+flask_socketio
+python-dotenv
+openai

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="flex items-center justify-center min-h-screen bg-gray-100">
+    <div class="flex flex-col md:flex-row bg-white shadow-lg rounded-lg overflow-hidden w-full max-w-4xl">
+        <div class="md:w-1/2 bg-blue-200 p-6 flex flex-col justify-center items-center">
+            <img src="{{ url_for('static', filename='assets/img/logs.png') }}" alt="Doctor Illustration" class="w-48 md:w-64">
+            <p class="mt-6 text-center text-lg">Your Well-Being is our Priority. Personalized Health Insights Await You.</p>
+            <p class="mt-2 text-center">Don't have an account? <a href="{{ url_for('register') }}" class="text-blue-600 hover:underline">Sign Up</a></p>
+        </div>
+        <div class="md:w-1/2 p-6 md:p-12 flex flex-col justify-center">
+            <div class="flex justify-center mb-4">
+                <img src="{{ url_for('static', filename='assets/img/q12.png') }}" alt="Quantum Doctor Logo" class="w-24 md:w-32">
+            </div>
+            <h2 class="text-2xl font-bold text-center text-blue-800 mb-6">Welcome back</h2>
+            <form method="POST" action="{{ url_for('login') }}">
+                <div class="mb-4">
+                    <label for="email" class="block text-gray-700">Email address</label>
+                    <input type="email" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="email" name="email" required>
+                </div>
+                <div class="mb-4">
+                    <label for="password" class="block text-gray-700">Password</label>
+                    <div class="relative">
+                        <input type="password" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="password" name="password" placeholder="********" required>
+                        <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-700">
+                            <i class="fa-solid fa-eye-slash cursor-pointer" id="togglePassword"></i>
+                        </span>
+                    </div>
+                    <small class="text-gray-500">Should be at least 8 characters</small>
+                </div>
+                <div class="flex justify-between mb-4">
+                    <a href="{{ url_for('recover') }}" class="text-blue-600 hover:underline">Forgot password?</a>
+                </div>
+                <button type="submit" class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200">Log In</button>
+            </form>
+        </div>
+    </div>
+    <script>
+        document.getElementById('togglePassword').addEventListener('click', function () {
+            const passwordField = document.getElementById('password');
+            const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordField.setAttribute('type', type);
+            this.classList.toggle('fa-eye-slash');
+            this.classList.toggle('fa-eye');
+        });
+    </script>
+</body>
+</html>

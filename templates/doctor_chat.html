@@ -1,0 +1,67 @@
+{% extends 'index.html' %}
+
+{% block content %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
+
+<div class="container my-5">
+    <h2>Messages</h2>
+    <div id="messages" style="max-height: 400px; overflow-y: auto;">
+        <!-- Messages will be loaded here -->
+    </div>
+    <div class="input-group mt-3">
+        <input type="text" id="message-input" class="form-control" placeholder="Type a message">
+        <button class="btn btn-primary" id="send-message-btn">Send</button>
+    </div>
+</div>
+
+<script>
+    const socket = io.connect('http://localhost:5000');
+    const doctorId = {{ doctor.id }}; // Set the doctor ID dynamically
+    const room = `doctor_${doctorId}`;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadMessages();
+        setupSocket();
+    });
+
+    document.getElementById('send-message-btn').addEventListener('click', () => {
+        const message = document.getElementById('message-input').value;
+        if (message.trim() !== '') {
+            socket.emit('send_message', { room, message });
+            document.getElementById('message-input').value = '';
+            appendMessage('You', message);
+        }
+    });
+
+    socket.on('message', (data) => {
+        appendMessage('Patient', data);
+    });
+
+    function setupSocket() {
+        socket.emit('join_room', { username: 'Doctor', room });
+
+        window.addEventListener('beforeunload', () => {
+            socket.emit('leave_room', { username: 'Doctor', room });
+        });
+    }
+
+    async function loadMessages() {
+        const response = await fetch(`/api/doctor/messages?doctor_id=${doctorId}`);
+        const messages = await response.json();
+        const messagesContainer = document.getElementById('messages');
+        messagesContainer.innerHTML = messages.map(message => `
+            <div>
+                <strong>${message.sender_id === doctorId ? 'You' : 'Patient'}:</strong> ${message.message_text}
+            </div>
+        `).join('');
+    }
+
+    function appendMessage(sender, message) {
+        const messagesContainer = document.getElementById('messages');
+        const messageElement = document.createElement('div');
+        messageElement.innerHTML = `<strong>${sender}:</strong> ${message}`;
+        messagesContainer.appendChild(messageElement);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+</script>
+{% endblock %}

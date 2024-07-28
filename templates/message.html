@@ -1,0 +1,158 @@
+{% extends 'index.html' %}
+{% block content %}
+<style>
+    body {
+        overflow-x: hidden;
+        margin: auto;
+        font-family: Arial, sans-serif;
+    }
+
+    .banner {
+        background: linear-gradient(45deg, #4e54c8, #8f94fb);
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        color: white;
+        margin-bottom: 30px;
+        width: 90%;
+        animation: fadeInDown 1s ease-in-out;
+    }
+
+    .banner h1, .banner h2 {
+        margin: 0;
+        padding: 0;
+    }
+
+    @keyframes fadeInDown {
+        0% {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        100% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-body {
+        padding: 20px;
+    }
+
+    .messages-container {
+        width: 90%;
+        margin: auto;
+        margin-left: 0px;
+    }
+
+    .img-fluid {
+        object-fit: cover;
+        cursor: pointer;
+    }
+
+    .badge {
+        font-size: 1em;
+    }
+
+    .card-text {
+        display: block;
+    }
+
+    .text-center {
+        text-align: center;
+    }
+
+    @media (max-width: 768px) {
+        .card {
+            margin-bottom: 20px;
+        }
+        .banner {
+        background: linear-gradient(45deg, #4e54c8, #8f94fb);
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        color: white;
+        margin-bottom: 30px;
+        width: 90%;
+        animation: fadeInDown 1s ease-in-out;
+    }
+    }
+</style>
+<main id="main" class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-12">
+            <div class="banner text-center">
+                <h1>Welcome, Dr. {{ current_user.first_name }} {{ current_user.last_name }}</h1>
+                <h2>Your Messages</h2>
+            </div>
+        </div>
+
+        <section class="col-12">
+            <div class="messages-container">
+                <div class="row">
+                    {% for message in messages %}
+                    <div class="col-lg-4 col-md-6 col-sm-12 mb-4">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <img src="{{ url_for('static', filename=message.avatar) }}"  
+                                     alt="Patient Avatar" 
+                                     class="img-fluid rounded-circle mb-3" 
+                                     style="width: 60px; height: 60px;" 
+                                     data-bs-toggle="modal" data-bs-target="#messageModal" 
+                                     data-name="{{ message.patient_name }}" 
+                                     data-content="{{ message.content }}" 
+                                     data-date="{{ message.date }}">
+                                <h5 class="card-title">{{ message.patient_name }}</h5>
+                                <p class="card-text">
+                                    <strong>Date:</strong> {{ message.timestamp }}<br>
+                                    <strong>Message:</strong> {{ message.content }}<br>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div class="modal fade" id="messageModal" tabindex="-1" aria-labelledby="messageModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="messageModalLabel">Message Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Message details will be dynamically inserted here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const messageImages = document.querySelectorAll('.img-fluid');
+
+        messageImages.forEach(img => {
+            img.addEventListener('click', function() {
+                const modalBody = document.querySelector('#messageModal .modal-body');
+                const patientName = this.getAttribute('data-name');
+                const messageContent = this.getAttribute('data-content');
+                const messageDate = this.getAttribute('data-date');
+                modalBody.innerHTML = `<h5>${patientName}</h5>
+                                       <p><strong>Date:</strong> ${messageDate}</p>
+                                       <p><strong>Message:</strong> ${messageContent}</p>`;
+            });
+        });
+    });
+</script>
+{% endblock content %}

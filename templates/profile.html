@@ -1,0 +1,200 @@
+<!-- profile.html -->
+{% extends 'index.html' %}
+
+{% block content %}
+<style>
+    /* styles.css */
+.profile-main {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    min-height: 100vh;
+    background: #272d7f;
+}
+
+.profile-container {
+    width: 100%;
+    max-width: 600px;
+    background: white;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    padding: 20px;
+}
+
+.profile-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.profile-header img {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    margin-bottom: 10px;
+}
+
+.profile-header h2 {
+    font-size: 1.5em;
+    margin-bottom: 10px;
+}
+
+.profile-header button {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.profile-details {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.profile-detail {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.profile-detail .label {
+    color: #888;
+}
+
+.profile-detail .value {
+    font-weight: bold;
+}
+
+.profile-detail.location {
+    flex-direction: column;
+    text-align: center;
+}
+
+.profile-appointments {
+    text-align: center;
+}
+
+.profile-appointments h3 {
+    margin-bottom: 20px;
+}
+
+.appointment {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+    border: 1px solid #eee;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+
+.appointment .time {
+    color: #007bff;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.appointment .title {
+    font-size: 1.1em;
+    margin-bottom: 5px;
+}
+
+.appointment .doctor {
+    color: #555;
+}
+
+</style>
+<body>
+    <main id="main" class="profile-main">
+        <div class="profile-container">
+            <div class="profile-header">
+                <img id="user-avatar" src="{{url_for('static',filename='assets/img/igatus.jpg')}}" alt="User Avatar">
+                <h2 id="user-name">Hello, IGATA JOHN DOE</h2>
+                <button id="view-profile-btn">View Profile</button>
+            </div>
+
+            <div class="profile-details">
+                <div class="profile-detail">
+                    <span class="label">Blood</span>
+                    <span id="user-blood" class="value">O+</span>
+                </div>
+                <div class="profile-detail">
+                    <span class="label">Height</span>
+                    <span id="user-height" class="value">186cm</span>
+                </div>
+                <div class="profile-detail">
+                    <span class="label">Weight</span>
+                    <span id="user-weight" class="value">90kg</span>
+                </div>
+                <div class="profile-detail location">
+                    <span id="user-age">25 years old</span>
+                    <span id="user-location">Abuja, Nigeria</span>
+                </div>
+            </div>
+
+            <div class="profile-appointments">
+                <h3>Upcoming Appointment</h3>
+                <div id="upcoming-appointments">
+                    <!-- Dynamic content will be loaded here -->
+                    <p>No Upcoming Appointment</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadUserProfile();
+            await loadAppointments();
+        });
+
+        async function loadUserProfile() {
+            try {
+                const response = await fetch('/user-profile');
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('user-name').textContent = `Hello, ${data.name}`;
+                    document.getElementById('user-blood').textContent = data.blood_type;
+                    document.getElementById('user-height').textContent = `${data.height}cm`;
+                    document.getElementById('user-weight').textContent = `${data.weight}kg`;
+                    document.getElementById('user-age').textContent = `${data.age} years old`;
+                    document.getElementById('user-location').textContent = data.location;
+                    // Assuming the user's avatar URL is stored in data.avatar
+                    document.getElementById('user-avatar').src = data.avatar || '/static/images/avatar-default.png';
+                } else {
+                    console.error('Failed to fetch user profile');
+                }
+            } catch (error) {
+                console.error('Error loading user profile:', error);
+            }
+        }
+
+        async function loadAppointments() {
+            try {
+                const response = await fetch('/user-appointments');
+                if (response.ok) {
+                    const data = await response.json();
+                    const appointments = data.appointments.map(appointment => `
+                        <div class="appointment">
+                            <span class="time">${appointment.time}</span>
+                            <p class="title">${appointment.title}</p>
+                            <p class="doctor">${appointment.doctor}</p>
+                        </div>
+                    `).join('');
+                    document.getElementById('upcoming-appointments').innerHTML = appointments || '<p>No Upcoming Appointment</p>';
+                } else {
+                    console.error('Failed to fetch appointments');
+                }
+            } catch (error) {
+                console.error('Error loading appointments:', error);
+            }
+        }
+    </script>
+</body>
+{% endblock %}
