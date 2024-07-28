@@ -20,7 +20,7 @@ from flask_login import (
 from flask_session import Session
 from pymongo import MongoClient
 import os
-from datetime import datetime
+from datetime import datetime,timedelta
 from flask_socketio import SocketIO, join_room, leave_room, send, emit
 from itsdangerous import URLSafeTimedSerializer
 from flask_mail import Mail, Message
@@ -44,7 +44,7 @@ reviews_collection = db.reviews
 appointments_collection = db.appointments
 favorites_collection = db.favorites
 replies_collection = db.replies
-
+user_activity_collection = db.user_activity
 
 # Define a path to save uploaded files
 UPLOAD_FOLDER = "static/uploads"
@@ -59,9 +59,9 @@ openai_client = OpenAI(api_key=api_key)
 app.config["MAIL_SERVER"] = "smtp.gmail.com"
 app.config["MAIL_PORT"] = 465
 app.config["MAIL_USE_SSL"] = True
-app.config["MAIL_USERNAME"] = "igatajohn15@gmail.com"
-app.config["MAIL_PASSWORD"] = "vqvq zdef tweu nytn"
-app.config["MAIL_DEFAULT_SENDER"] = "igatajohn15@gmail.com"
+app.config["MAIL_USERNAME"] = "igatusjohn15@gmail.com"
+app.config["MAIL_PASSWORD"] = "cxbz fymx nfim hvrr"
+app.config["MAIL_DEFAULT_SENDER"] = "igatusjohn15@gmail.com"
 app.config["SECURITY_PASSWORD_SALT"] = "e33f8aa37685ca765b9d5613c0e41c0b"
 mail = Mail(app)
 app.config['SESSION_TYPE'] = 'filesystem'
@@ -101,6 +101,7 @@ class User(UserMixin):
         self.avatar = self._strip_static_prefix(user_data.get('avatar', ''))
         self.contact = user_data.get('contact', '')
         self.role = user_data.get('role')
+        self.conversation_history = user_data.get('conversation_history', [])
     
     def to_dict(self):
         return {
@@ -264,8 +265,9 @@ def user_list():
     users_data = users_collection.find()
     users = [User(data).to_dict() for data in users_data]
     return render_template("users.html", users=users)
-
-
+@app.route('/users')
+def users():
+    return render_template("users.html")
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
@@ -374,18 +376,20 @@ def login():
         if doctor and check_password_hash(doctor['password'], password):
             user = User(doctor)
             session['doctor_id'] = str(doctor['_id'])
-                # Update status to online for doctors
-            
+            session['conversation_history'] = doctor.get('conversation_history', [])
             doctors_collection.update_one(
-                    {"_id": doctor["_id"]},
-                    {"$set": {"online": True}}
-                )
+                {"_id": doctor["_id"]},
+                {"$set": {"online": True}}
+            )
+            log_user_activity(user.id, "login", {"role": "doctor"})
 
         if not user:
             normal_user = users_collection.find_one({"email": email})
             if normal_user and check_password_hash(normal_user['password'], password):
                 user = User(normal_user)
                 session['user_id'] = str(normal_user['_id'])
+                session['conversation_history'] = normal_user.get('conversation_history', [])
+                log_user_activity(user.id, "login", {"role": "user"})
 
         if user:
             login_user(user)
@@ -397,8 +401,6 @@ def login():
             flash('Login failed. Check your email and password.')
 
     return render_template('login.html')
-
-
 @app.route("/send_message", methods=["POST"])
 def send_message():
     try:
@@ -445,12 +447,11 @@ def add_review():
     return redirect(url_for('some_view'))
 
 
-
 @app.route("/recover", methods=["GET", "POST"])
 def recover():
     if request.method == "POST":
         email = request.form.get("email")
-        user = User.query.filter_by(email=email).first()
+        user = users_collection.find_one({"email": email}) or doctors_collection.find_one({"email": email})
         if user:
             send_password_reset_email(user)
             flash("A password reset email has been sent.", "info")
@@ -458,27 +459,22 @@ def recover():
             flash("No account associated with this email.", "error")
         return redirect(url_for("password_reset_mail_sent"))
     return render_template("recover.html")
-
-
 def send_password_reset_email(user):
     token = generate_reset_token(user)
     reset_url = url_for("reset_password", token=token, _external=True)
-    msg = Message(
-        subject="Password Reset Request",
-        recipients=[user.email],
-        body=f"To reset your password, visit the following link: {reset_url}\n\n"
-        "If you did not make this request, please ignore this email.",
-    )
+    
+    msg = Message(subject="Password Reset Request",
+                  recipients=[user['email']],
+                  body=f"To reset your password, visit the following link: {reset_url}\n\n"
+                       "If you did not make this request, please ignore this email.")
+    
     try:
         mail.send(msg)
-        print(f"Sent email to {user.email}")
+        print(f"Sent email to {user['email']}")
     except Exception as e:
         print(f"Failed to send email: {e}")
-
-
 def generate_reset_token(user):
-    return serializer.dumps(user.email, salt=app.config["SECURITY_PASSWORD_SALT"])
-
+    return serializer.dumps(user['email'], salt=app.config["SECURITY_PASSWORD_SALT"])
 
 def confirm_reset_token(token, expiration=3600):
     try:
@@ -488,9 +484,6 @@ def confirm_reset_token(token, expiration=3600):
     except:
         return False
     return email
-
-
-
 @app.route('/get-response', methods=['POST'])
 def get_response():
     try:
@@ -513,66 +506,129 @@ def get_response():
         # Save the updated conversation history in session
         session['conversation_history'] = conversation_history
 
+        log_user_activity(session.get('user_id'), "chat_interaction", {"user_input": user_input, "response": response_text})
+
         return jsonify({'response': response_text})
     except Exception as e:
         app.logger.error(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
+    
+@app.route('/api/weekly-active-users')
+def weekly_active_users():
+    end_of_day = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    start_of_week = end_of_day - timedelta(days=7)
 
+    weekly_active_users = user_activity_collection.aggregate([
+        {
+            "$match": {
+                "timestamp": {"$gte": start_of_week, "$lt": end_of_day}
+            }
+        },
+        {
+            "$group": {
+                "_id": {
+                    "day": {"$dayOfMonth": "$timestamp"},
+                    "month": {"$month": "$timestamp"},
+                    "year": {"$year": "$timestamp"}
+                },
+                "unique_users": {"$addToSet": "$user_id"}
+            }
+        },
+        {
+            "$project": {
+                "date": {"$dateFromParts": {"year": "$_id.year", "month": "$_id.month", "day": "$_id.day"}},
+                "unique_users_count": {"$size": "$unique_users"}
+            }
+        },
+        {
+            "$sort": {"date": 1}
+        }
+    ])
 
+    data = [{"date": str(day["date"].date()), "count": day["unique_users_count"]} for day in weekly_active_users]
+    return jsonify(data)
+@app.route('/api/daily-active-users')
+def daily_active_users():
+    start_of_day = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    end_of_day = start_of_day + timedelta(days=1)
+
+    daily_active_users = user_activity_collection.aggregate([
+        {
+            "$match": {
+                "timestamp": {"$gte": start_of_day, "$lt": end_of_day}
+            }
+        },
+        {
+            "$group": {
+                "_id": "$user_id"
+            }
+        },
+        {
+            "$count": "daily_active_users"
+        }
+    ])
+
+    count = list(daily_active_users)[0]['daily_active_users'] if daily_active_users else 0
+    return jsonify({'count': count})
 @app.route("/reset_password/<token>", methods=["GET", "POST"])
 def reset_password(token):
     email = confirm_reset_token(token)
     if not email:
         flash("The reset link is invalid or has expired.", "error")
+        return redirect(url_for("recover"))
+    
+    if request.method == "POST":
+        password = request.form.get("password")
+        # Update the user's password in the database
+        if users_collection.find_one({"email": email}):
+            users_collection.update_one({"email": email}, {"$set": {"password": password}})
+        elif doctors_collection.find_one({"email": email}):
+            doctors_collection.update_one({"email": email}, {"$set": {"password": password}})
+        
+        flash("Your password has been reset!", "success")
         return redirect(url_for("login"))
 
-    if request.method == "POST":
-        password = request.form["password"]
-        confirm_password = request.form["confirm_password"]
-        if password != confirm_password:
-            flash("Passwords do not match.", "error")
-            return redirect(url_for("reset_password", token=token))
-
-        user = User.query.filter_by(email=email).first()
-        if user:
-            user.password = generate_password_hash(password)
-            db.session.commit()
-            flash("Your password has been updated!", "success")
-            return redirect(url_for("new_password_set"))
-
     return render_template("reset_password.html", token=token)
-
-
 @app.route("/password_reset_mail_sent")
 def password_reset_mail_sent():
     return render_template("password_reset_mail_sent.html")
-
 
 @app.route("/new_password_set")
 def new_password_set():
     return render_template("new_password_set.html")
 
-
+def log_user_activity(user_id, event, details=None):
+    log_entry = {
+        "user_id": user_id,
+        "timestamp": datetime.utcnow(),
+        "event": event,
+        "details": details
+    }
+    user_activity_collection.insert_one(log_entry)
 @app.route('/chatbot', methods=['POST'])
 def chatbot():
-    data = request.json
-    user_input = data.get('message', '')
+    try:
+        data = request.json
+        user_input = data.get('message', '')
 
-    # Retrieve conversation history from session
-    conversation_history = session.get('conversation_history', [])
+        # Retrieve conversation history from session
+        conversation_history = session.get('conversation_history', [])
 
-    # Append the new user input to the conversation history
-    conversation_history.append({"role": "user", "content": user_input})
+        # Append the new user input to the conversation history
+        conversation_history.append({"role": "user", "content": user_input})
 
-    response = generate_response(conversation_history)
+        response = generate_response(conversation_history)
 
-    # Append the bot response to the conversation history
-    conversation_history.append({"role": "assistant", "content": response})
+        # Append the bot response to the conversation history
+        conversation_history.append({"role": "assistant", "content": response})
 
-    # Save the updated conversation history in session
-    session['conversation_history'] = conversation_history
+        # Save the updated conversation history in session
+        session['conversation_history'] = conversation_history
 
-    return jsonify({'reply': response})
+        return jsonify({'reply': response})
+    except Exception as e:
+        app.logger.error(f"Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 def generate_response(conversation_history):
     try:
@@ -583,17 +639,16 @@ def generate_response(conversation_history):
                 {
                     "role": "system",
                     "content": """You are Quantum Doctor, a healthcare assistant, capable of making diagnosis based on symptoms,
-                make sure to explain diagnosis in the simplest possible way for patients to understand.
-                start by asking the patients for their name.
-                ask necessary health question about the provided medical condition to enable you make accurate diagnosis,
-                you can predict to a high degree of accuracy the potential of future occurence of an illness in days, weeks months etc after a proper understanding
-                of the underlying health pattern.
-                You were trained by a team of  Machine Learning Engineers led by Engineer Igata John at QuantumLabs, 
-                a division of Quantum Innovative Tech Solutions Ltd
-                """,
+                    make sure to explain diagnosis in the simplest possible way for patients to understand.
+                    start by asking the patients for their name.
+                    ask necessary health question about the provided medical condition to enable you make accurate diagnosis,
+                    you can predict to a high degree of accuracy the potential of future occurence of an illness in days, weeks months etc after a proper understanding
+                    of the underlying health pattern.
+                    You were trained by a team of Machine Learning Engineers led by Engineer Igata John at QuantumLabs, 
+                    a division of Quantum Innovative Tech Solutions Ltd
+                    """,
                 },
-                
-            ]+ conversation_history
+            ] + conversation_history
         )
 
         # Extract the model's response content
@@ -602,9 +657,6 @@ def generate_response(conversation_history):
         return model_response
     except Exception as e:
         return str(e)
-
-
-
 @app.route('/notifications')
 @login_required
 def notifications():
@@ -886,19 +938,28 @@ def handle_send_message_event(data):
 def logout():
     user_id = current_user.id
     user_role = current_user.role
+    conversation_history = session.pop('conversation_history', [])
     
-    logout_user()
-    
-    # Update status to offline for doctors
     if user_role == "doctor":
         doctors_collection.update_one(
             {"_id": ObjectId(user_id)},
-            {"$set": {"online": False}}
+            {"$set": {
+                "online": False,
+                "conversation_history": conversation_history
+            }}
         )
+    else:
+        users_collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {
+                "conversation_history": conversation_history
+            }}
+        )
+    
+    logout_user()
     
     flash("You have been logged out.", "success")
     return redirect(url_for("login"))
-
 
 if __name__ == "__main__":
     socketio.run(app, debug=True, host="0.0.0.0", port="5000")
