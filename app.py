@@ -265,6 +265,11 @@ def user_list():
     users_data = users_collection.find()
     users = [User(data).to_dict() for data in users_data]
     return render_template("users.html", users=users)
+@app.route('/user_list')
+def user_list():
+    users_data = users_collection.find()
+    users = [User(data).to_dict() for data in users_data]
+    return render_template("user_list.html", users=users)
 @app.route('/users')
 def users():
     return render_template("users.html")
