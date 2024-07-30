@@ -1,5 +1,6 @@
 {% extends 'index.html' %}
 {% block content %}
+
 <style>
     body {
         overflow-x: hidden;
@@ -8,7 +9,7 @@
     }
 
     .banner {
-        background: linear-gradient(45deg, #4e54c8, #8f94fb);
+        background: linear-gradient(45deg,#004ba8, #3a478f);
         padding: 20px;
         border-radius: 10px;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -72,7 +73,7 @@
             margin-bottom: 20px;
         }
         .banner {
-        background: linear-gradient(45deg, #4e54c8, #8f94fb);
+        background: linear-gradient(45deg, #004ba8, #3a478f);
         padding: 20px;
         border-radius: 10px;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -117,7 +118,7 @@
                                      data-status="{{ appointment.status }}">
                                 <h5 class="card-title">{{ appointment.patient_name }}</h5>
                                 <p class="card-text">
-                                    <strong>Date:</strong> {{ appointment.date }}<br>
+                                   <strong>Date:</strong> {{ appointment.date }}<br>
                                     <strong>Time:</strong> {{ appointment.time }}<br>
                                     <strong>Contact:</strong> {{ appointment.patient_contact }}<br>
                                     <strong>Status:</strong> <span class="badge bg-warning text-dark">{{ appointment.status }}</span>
