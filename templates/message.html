@@ -1,5 +1,6 @@
 {% extends 'index.html' %}
 {% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 <style>
     body {
         overflow-x: hidden;
@@ -8,7 +9,7 @@
     }
 
     .banner {
-        background: linear-gradient(45deg, #4e54c8, #8f94fb);
+        background: linear-gradient(45deg,#004ba8, #3a478f);
         padding: 20px;
         border-radius: 10px;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -62,7 +63,10 @@
     .card-text {
         display: block;
     }
-
+    .icon {
+        color: #004ba8;
+        margin-right: 10px;
+    }
     .text-center {
         text-align: center;
     }
@@ -106,12 +110,13 @@
                                      data-bs-toggle="modal" data-bs-target="#messageModal" 
                                      data-name="{{ message.patient_name }}" 
                                      data-content="{{ message.content }}" 
-                                     data-date="{{ message.date }}">
+                                     data-date="{{ message.timestamp }}">
                                 <h5 class="card-title">{{ message.patient_name }}</h5>
                                 <p class="card-text">
-                                    <strong>Date:</strong> {{ message.timestamp }}<br>
-                                    <strong>Message:</strong> {{ message.content }}<br>
+                                    <i class="fas fa-calendar-day icon"></i><strong> Date:</strong> {{ message.timestamp }}<br>
+                                    <i class="fas fa-envelope icon"></i><strong> Message:</strong> {{ message.content }}<br>
                                 </p>
+                                <button type="button" class="btn btn-primary reply-btn" data-bs-toggle="modal" data-bs-target="#replyModal" data-id="{{ message._id }}" data-sender="{{ message.sender_id }}"><i class="fas fa-reply"></i> Reply</button>
                             </div>
                         </div>
                     </div>
@@ -121,18 +126,26 @@
         </section>
     </div>
 
-    <div class="modal fade" id="messageModal" tabindex="-1" aria-labelledby="messageModalLabel" aria-hidden="true">
+    <div class="modal fade" id="replyModal" tabindex="-1" aria-labelledby="replyModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="messageModalLabel">Message Details</h5>
+                    <h5 class="modal-title" id="replyModalLabel">Reply to Message</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <!-- Message details will be dynamically inserted here -->
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <form id="replyForm" method="POST" action="{{ url_for('reply') }}">
+                        <input type="hidden" name="message_id" id="replyMessageId">
+                        <input type="hidden" name="receiver_id" id="replyReceiverId">
+                        <div class="mb-3">
+                            <label for="replyContent" class="form-label">Your Reply</label>
+                            <textarea class="form-control" id="replyContent" name="content" rows="3" required></textarea>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="submit" class="btn btn-primary">Send Reply</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -140,17 +153,14 @@
 </main>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const messageImages = document.querySelectorAll('.img-fluid');
+        const replyButtons = document.querySelectorAll('.reply-btn');
 
-        messageImages.forEach(img => {
-            img.addEventListener('click', function() {
-                const modalBody = document.querySelector('#messageModal .modal-body');
-                const patientName = this.getAttribute('data-name');
-                const messageContent = this.getAttribute('data-content');
-                const messageDate = this.getAttribute('data-date');
-                modalBody.innerHTML = `<h5>${patientName}</h5>
-                                       <p><strong>Date:</strong> ${messageDate}</p>
-                                       <p><strong>Message:</strong> ${messageContent}</p>`;
+        replyButtons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const messageId = this.getAttribute('data-id');
+                const senderId = this.getAttribute('data-sender');
+                document.getElementById('replyMessageId').value = messageId;
+                document.getElementById('replyReceiverId').value = senderId;
             });
         });
     });
