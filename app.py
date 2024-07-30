@@ -97,6 +97,10 @@ class User(UserMixin):
         self.first_name = user_data.get('first_name')
         self.last_name = user_data.get('last_name')
         self.email = user_data.get('email')
+        self.blood = user_data.get('blood')
+        self.height = user_data.get('height')
+        self.age = user_data.get('age')
+        self.location = user_data.get('location')
         self.password = user_data.get('password')
         self.avatar = self._strip_static_prefix(user_data.get('avatar', ''))
         self.contact = user_data.get('contact', '')
@@ -212,6 +216,22 @@ class Message:
             'id': self.id,
             'sender_id': self.sender_id,
             'receiver_id': self.receiver_id,
+            'content': self.content,
+            'timestamp': self.timestamp
+        }
+class Reply:
+    def __init__(self, reply_data):
+        self.id = str(reply_data['_id'])
+        self.message_id = reply_data.get('message_id')
+        self.doctor_id = reply_data.get('doctor_id')
+        self.content = reply_data.get('content')
+        self.timestamp = reply_data.get('timestamp', datetime.utcnow())
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'message_id': self.message_id,
+            'doctor_id': self.doctor_id,
             'content': self.content,
             'timestamp': self.timestamp
         }
@@ -377,24 +397,24 @@ def login():
         password = request.form['password']
         user = None
 
+        # Find the doctor
         doctor = doctors_collection.find_one({"email": email})
         if doctor and check_password_hash(doctor['password'], password):
             user = User(doctor)
             session['doctor_id'] = str(doctor['_id'])
-            session['conversation_history'] = doctor.get('conversation_history', [])
+            
+            # Update status to online for doctors
             doctors_collection.update_one(
                 {"_id": doctor["_id"]},
                 {"$set": {"online": True}}
             )
-            log_user_activity(user.id, "login", {"role": "doctor"})
 
+        # If not found, try to find a normal user
         if not user:
             normal_user = users_collection.find_one({"email": email})
             if normal_user and check_password_hash(normal_user['password'], password):
                 user = User(normal_user)
                 session['user_id'] = str(normal_user['_id'])
-                session['conversation_history'] = normal_user.get('conversation_history', [])
-                log_user_activity(user.id, "login", {"role": "user"})
 
         if user:
             login_user(user)
@@ -406,6 +426,7 @@ def login():
             flash('Login failed. Check your email and password.')
 
     return render_template('login.html')
+
 @app.route("/send_message", methods=["POST"])
 def send_message():
     try:
@@ -451,6 +472,30 @@ def add_review():
     flash("Review added!")
     return redirect(url_for('some_view'))
 
+@app.route('/reply', methods=['POST'])
+@login_required
+def reply():
+    data = request.form
+    print("Received form data:", data)
+
+    message_id = data.get('message_id')
+    content = data.get('content')
+    receiver_id = data.get('receiver_id')
+
+    if not message_id or not content or not receiver_id:
+        return jsonify({"error": "Message ID, receiver ID, and content are required"}), 400
+
+    reply_data = {
+        "sender_id": current_user.id,
+        "receiver_id": receiver_id,
+        "message_id": message_id,
+        "content": content,
+        "timestamp": datetime.utcnow()
+    }
+
+    replies_collection.insert_one(reply_data)
+
+    return redirect(url_for('messages'))
 
 @app.route("/recover", methods=["GET", "POST"])
 def recover():
@@ -786,7 +831,7 @@ def messages():
         patient = users_collection.find_one({"_id": ObjectId(message["sender_id"])})
         if patient:
             message["patient_name"] = f"{patient.get('first_name', '')} {patient.get('last_name', '')}"
-            message['avatar']= f"{patient.get('avatar', '')}"
+            message['avatar'] = f"{patient.get('avatar', '')}"
         else:
             message["patient_name"] = "Unknown"
     print("Messages with Patient Names: ", messages)  # Debug print
@@ -813,10 +858,56 @@ def get_appointments():
 def unauthorized(error):
     return render_template("unauthorize.html"), 401
 
-@app.route("/profile")
+@app.route('/profile')
+@login_required
 def profile():
-    return render_template("profile.html")
+    user = {
+        "name": f"{current_user.first_name} {current_user.last_name}",
+        "email": current_user.email,
+        "role": current_user.role,
+        "avatar": current_user.avatar,  # Assuming you have an avatar URL stored
+        "contact": current_user.contact,
+    }
+    
+    # Fetch appointments
+    appointments = appointments_collection.find({"patient_id": current_user.id})
+    appointment_list = []
+    for appointment_data in appointments:
+        appointment = Appointment(appointment_data).to_dict()
+        
+        # Fetch doctor's name
+        doctor = doctors_collection.find_one({"_id": ObjectId(appointment['doctor_id'])})
+        if doctor:
+            appointment['doctor_name'] = f"{doctor.get('first_name', '')} {doctor.get('last_name', '')}"
+        else:
+            appointment['doctor_name'] = "Unknown Doctor"
+        
+        appointment_list.append(appointment)
+    
+    # Fetch messages
+    messages =  list(messages_collection.find({"receiver_id": current_user.id}))
+    
+    for message in messages:
+        doctor = users_collection.find_one({"_id": ObjectId(message["sender_id"])})
+        if doctor:
+            message["doctor_name"] = f"Dr. {doctor.get('first_name', '')} {doctor.get('last_name', '')}"
+            message['avatar'] = f"{doctor.get('avatar', '')}"
+        else:
+            message["doctor_name"] = "Unknown"
+    message_list = [Message(message).to_dict() for message in messages]
+        # Fetch replies
+    replies = list(replies_collection.find({"receiver_id": current_user.id}))
+    for reply in replies:
+        doctor = users_collection.find_one({"_id": ObjectId(reply["sender_id"])})
+        
+        if doctor:
+            reply["doctor_name"] = f"Dr. {doctor.get('first_name', '')} {doctor.get('last_name', '')}"
+            
+        else:
+            reply["doctor_name"] = "Unknown"
 
+    reply_list = [Reply(reply).to_dict() for reply in replies]
+    return render_template('profile.html', user=user, appointments=appointment_list, messages=message_list,replies=reply_list)
 
 @app.route("/consultations")
 def consultations():
