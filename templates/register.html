@@ -22,43 +22,43 @@
             <form method="POST" action="{{ url_for('register') }}" enctype="multipart/form-data">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
-                        <label for="first_name" class="block text-gray-700">First name</label>
+                        <label for="first_name" class="block text-gray-700">First name<span style="color:red">*</span></label>
                         <input type="text" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="first_name" name="first_name" required>
                     </div>
                     <div>
-                        <label for="last_name" class="block text-gray-700">Last name</label>
+                        <label for="last_name" class="block text-gray-700">Last name<span style="color:red">*</span></label>
                         <input type="text" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="last_name" name="last_name" required>
                     </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
-                        <label for="email" class="block text-gray-700">Email address</label>
+                        <label for="email" class="block text-gray-700">Email address<span style="color:red">*</span></label>
                         <input type="email" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="email" name="email" required>
                     </div>
                     <div>
-                        <label for="contact" class="block text-gray-700">Contact</label>
+                        <label for="contact" class="block text-gray-700">Contact<span style="color:red">*</span></label>
                         <input type="text" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="contact" name="contact">
                     </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
-                        <label for="password" class="block text-gray-700">Password</label>
+                        <label for="password" class="block text-gray-700">Password<span style="color:red">*</span></label>
                         <input type="password" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="password" name="password" required>
                     </div>
                     <div>
-                        <label for="confirm_password" class="block text-gray-700">Confirm Password</label>
+                        <label for="confirm_password" class="block text-gray-700">Confirm Password<span style="color:red">*</span></label>
                         <input type="password" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="confirm_password" name="confirm_password" required>
                     </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
-                        <label for="doctorAvatar" class="block text-gray-700">Photo</label>
+                        <label for="doctorAvatar" class="block text-gray-700">Photo<span style="color:red">*</span></label>
                         <input type="file" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="doctorAvatar" name="doctorAvatar">
                     </div>
                     <div>
-                        <label for="role" class="block text-gray-700">Role</label>
-                        <select id="role" name="role" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" required>
-                            <option value="user">User</option>
+                        <label for="role" class="block text-gray-700">Role<span style="color:red">*</span></label>
+                        <select id="role" name="role" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" required onchange="handleRoleChange()">
+                            <option value="user">Patient</option>
                             <option value="doctor">Doctor</option>
                         </select>
                     </div>
@@ -66,17 +66,40 @@
                 <div id="doctorFields" class="mb-4" style="display: none;">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
-                            <label for="specialization" class="block text-gray-700">Specialization</label>
+                            <label for="specialization" class="block text-gray-700">Specialization<span style="color:red">*</span></label>
                             <input type="text" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="specialization" name="specialization">
                         </div>
                         <div>
-                            <label for="location" class="block text-gray-700">Location</label>
+                            <label for="location" class="block text-gray-700">Location<span style="color:red">*</span></label>
                             <input type="text" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="location" name="location">
                         </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="specialization" class="block text-gray-700">About<span style="color:red">*</span></label>
+                            <input type="text" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="about" name="about">
+                        </div>
+                        <div>
+                            <label for="location" class="block text-gray-700">Experience<span style="color:red">*</span></label>
+                            <input type="number" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="experience" name="experience">
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="medical_license" class="block text-gray-700">Medical License<span style="color:red">*</span></label>
+                        <input type="file" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="medical_license" name="medical_license">
+                    </div>
+                    <div class="mb-4">
+                        <label for="medical_school_certificate" class="block text-gray-700">Medical School Certificate<span style="color:red">*</span></label>
+                        <input type="file" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="medical_school_certificate" name="medical_school_certificate">
+                    </div>
+                    <div class="mb-4">
+                        <label for="nysc_certificate" class="block text-gray-700">NYSC Certificate<span style="color:red">*</span></label>
+                        <input type="file" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="nysc_certificate" name="nysc_certificate">
                     </div>
                 </div>
                 <button type="submit" class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200">Register</button>
             </form>
+            
         </div>
     </div>
     <script>
@@ -96,6 +119,28 @@
             this.classList.toggle('fa-eye-slash');
             this.classList.toggle('fa-eye');
         });
+    
+    handleRoleChange(); // Initialize the visibility of the doctor fields based on the current role selection
+
+
+function handleRoleChange() {
+    var role = document.getElementById('role').value;
+    var doctorFields = document.getElementById('doctorFields');
+    var requiredFields = ['specialization', 'location', 'about', 'experience', 'medical_license', 'medical_school_certificate', 'nysc_certificate'];
+
+    if (role === 'doctor') {
+        doctorFields.style.display = 'block';
+        requiredFields.forEach(function (field) {
+            document.getElementById(field).setAttribute('required', 'required');
+        });
+    } else {
+        doctorFields.style.display = 'none';
+        requiredFields.forEach(function (field) {
+            document.getElementById(field).removeAttribute('required');
+        });
+    }
+}
+
     </script>
 </body>
 </html>
