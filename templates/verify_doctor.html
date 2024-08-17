@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Doctor</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 h-screen flex justify-center items-center">
+    <div class="bg-white p-8 rounded-lg shadow-lg w-full md:w-1/2 lg:w-1/3">
+        <h2 class="text-2xl font-bold mb-6 text-center">Verify Doctor</h2>
+        <form method="POST" action="{{ url_for('verify_doctor', doctor_id=doctor_id) }}" enctype="multipart/form-data">
+            <div class="mb-4">
+                <label for="medical_license" class="block text-gray-700">Medical License<span style="color:red">*</span></label>
+                <input type="file" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="medical_license" name="medical_license" required>
+            </div>
+            <div class="mb-4">
+                <label for="medical_school_certificate" class="block text-gray-700">Medical School Certificate<span style="color:red">*</span></label>
+                <input type="file" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="medical_school_certificate" name="medical_school_certificate" required>
+            </div>
+            <div class="mb-4">
+                <label for="nysc_certificate" class="block text-gray-700">NYSC Certificate<span style="color:red">*</span></label>
+                <input type="file" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="nysc_certificate" name="nysc_certificate" required>
+            </div>
+            <button type="submit" class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200">Verify</button>
+        </form>
+    </div>
+</body>
+</html>

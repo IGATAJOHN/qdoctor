@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 h-screen flex flex-col items-center">
+    <div class="w-full max-w-6xl mt-12">
+        <h1 class="text-3xl mb-6 text-center text-blue-800">Admin Dashboard</h1>
+        <table class="min-w-full bg-white rounded-lg shadow-lg">
+            <thead class="bg-blue-200">
+                <tr>
+                    <th class="w-1/6 py-2">Name</th>
+                    <th class="w-1/6 py-2">Email</th>
+                    <th class="w-1/6 py-2">Specialization</th>
+                    <th class="w-1/6 py-2">Medical License</th>
+                    <th class="w-1/6 py-2">Medical Certificate</th>
+                    <th class="w-1/6 py-2">NYSC Certificate</th>
+                    <th class="w-1/6 py-2">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doctor in doctors %}
+                <tr class="border-t">
+                    <td class="py-2 text-center">{{ doctor.first_name }} {{ doctor.last_name }}</td>
+                    <td class="py-2 text-center">{{ doctor.email }}</td>
+                    <td class="py-2 text-center">{{ doctor.specialization }}</td>
+                    <td class="py-2 text-center"><a href="{{ url_for('static', filename=doctor.medical_license) }}" download>Download</a></td>
+                    <td class="py-2 text-center"><a href="{{ url_for('static', filename=doctor.medical_certificate) }}" download>Download</a></td>
+                    <td class="py-2 text-center"><a href="{{ url_for('static', filename=doctor.nysc_certificate) }}" download>Download</a></td>
+                    <td class="py-2 text-center">
+                        <form method="POST" action="{{ url_for('verify_doctor', doctor_id=doctor._id) }}">
+                            <button type="submit" class="bg-green-500 text-white px-4 py-1 rounded-lg hover:bg-green-700">Verify</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
