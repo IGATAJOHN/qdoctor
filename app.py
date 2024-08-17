@@ -45,6 +45,8 @@ appointments_collection = db.appointments
 favorites_collection = db.favorites
 replies_collection = db.replies
 user_activity_collection = db.user_activity
+# Define the collection
+conversations_collection = db.conversations
 
 # Define a path to save uploaded files
 UPLOAD_FOLDER = "static/uploads"
@@ -72,7 +74,7 @@ app.config['SESSION_KEY_PREFIX'] = 'myapp:'
 Session(app)
 
 def allowed_file(filename):
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 # Secret key for generating reset tokens
@@ -97,10 +99,6 @@ class User(UserMixin):
         self.first_name = user_data.get('first_name')
         self.last_name = user_data.get('last_name')
         self.email = user_data.get('email')
-        self.blood = user_data.get('blood')
-        self.height = user_data.get('height')
-        self.age = user_data.get('age')
-        self.location = user_data.get('location')
         self.password = user_data.get('password')
         self.avatar = self._strip_static_prefix(user_data.get('avatar', ''))
         self.contact = user_data.get('contact', '')
@@ -151,6 +149,10 @@ class Doctor:
         self.rating = doctor_data.get('rating', 0)
         self.messages = doctor_data.get('messages', [])
         self.reviews = doctor_data.get('reviews', [])
+        self.medical_license = doctor_data.get('medical_license', '')
+        self.medical_school_certificate = doctor_data.get('medical_school_certificate', '')
+        self.nysc_certificate = doctor_data.get('nysc_certificate', '')
+        self.verified = doctor_data.get('verified', False)
 
     def set_password(self, password):
         self.password = generate_password_hash(password)
@@ -172,7 +174,11 @@ class Doctor:
             'online': self.online,
             'rating': self.rating,
             'messages': self.messages,
-            'reviews': self.reviews
+            'reviews': self.reviews,
+            'medical_license': self.medical_license,
+            'medical_school_certificate': self.medical_school_certificate,
+            'nysc_certificate': self.nysc_certificate,
+            'verified': self.verified
         }
 
     def get_unread_messages(self):
@@ -183,20 +189,15 @@ class Doctor:
 
     @property
     def is_active(self):
-        return True
+        return self.verified
 
     @property
     def is_authenticated(self):
-        return True
+        return self.verified
 
     @property
     def is_anonymous(self):
         return False
-
-    def _strip_static_prefix(self, avatar_path):
-        if avatar_path.startswith('static/'):
-            return avatar_path[len('static/'):]
-        return avatar_path
 
     def _strip_static_prefix(self, avatar_path):
         if avatar_path.startswith('static/'):
@@ -293,6 +294,7 @@ def user_list():
 @app.route('/users')
 def users():
     return render_template("users.html")
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
@@ -319,6 +321,24 @@ def register():
             avatar.save(file_path)
         else:
             relative_path = None
+
+        # Handle file uploads for medical documents
+        medical_license = request.files.get('medical_license')
+        medical_school_certificate = request.files.get('medical_school_certificate')
+        nysc_certificate = request.files.get('nysc_certificate')
+        
+        def save_document(doc):
+            if doc:
+                doc_filename = secure_filename(doc.filename)
+                doc_path = os.path.join(app.config['UPLOAD_FOLDER'], doc_filename)
+                doc_relative_path = os.path.relpath(doc_path, 'static')
+                doc.save(doc_path)
+                return doc_relative_path
+            return None
+        
+        medical_license_path = save_document(medical_license)
+        medical_school_certificate_path = save_document(medical_school_certificate)
+        nysc_certificate_path = save_document(nysc_certificate)
 
         # Validate form data
         if not first_name or not last_name or not email or not password or not confirm_password:
@@ -347,7 +367,11 @@ def register():
             "avatar": relative_path,
             "online": online,
             "rating": rating,
-            "messages": []
+            "messages": [],
+            "medical_license": medical_license_path,
+            "medical_school_certificate": medical_school_certificate_path,
+            "nysc_certificate": nysc_certificate_path,
+            "verified": False
         }
         users_data = {
             "first_name": first_name,
@@ -371,6 +395,9 @@ def register():
                          {'_id': doctor['_id']},
                         {'$set': {'avatar': updated_avatar}}
                         )
+                flash("Registration successful! Your account is under review.", "success")
+                return redirect(url_for("review"))
+
             if role == "user":
                 users_collection.insert_one(users_data)
                 users = users_collection.find()
@@ -381,14 +408,18 @@ def register():
                          {'_id': user['_id']},
                         {'$set': {'avatar': updated_avatar}}
                         )
-                
-            flash("Registration successful!", "success")
-            return redirect(url_for("login"))
+                flash("Registration successful! You can now log in.", "success")
+                return redirect(url_for("login"))
+        
         except Exception as e:
             flash(f"An error occurred: {str(e)}", "danger")
             return redirect(url_for("register"))
         
     return render_template("register.html")
+
+@app.route("/review")
+def review():
+    return render_template("review.html")
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -400,14 +431,18 @@ def login():
         # Find the doctor
         doctor = doctors_collection.find_one({"email": email})
         if doctor and check_password_hash(doctor['password'], password):
-            user = User(doctor)
-            session['doctor_id'] = str(doctor['_id'])
-            
-            # Update status to online for doctors
-            doctors_collection.update_one(
-                {"_id": doctor["_id"]},
-                {"$set": {"online": True}}
-            )
+            if doctor.get("verified"):  # Check if the doctor is verified
+                user = User(doctor)
+                session['doctor_id'] = str(doctor['_id'])
+
+                # Update status to online for doctors
+                doctors_collection.update_one(
+                    {"_id": doctor["_id"]},
+                    {"$set": {"online": True}}
+                )
+            else:
+                flash("Your account is still under review. Please wait for verification.", "danger")
+                return redirect(url_for("login"))
 
         # If not found, try to find a normal user
         if not user:
@@ -452,8 +487,9 @@ def send_message():
 
     except Exception as e:
         # Log the error
-        print(f"Error: {str(e)}")
+        
         return jsonify({"error": "Internal Server Error"}), 500
+
 @app.route('/add_review', methods=['POST'])
 @login_required
 def add_review():
@@ -476,7 +512,7 @@ def add_review():
 @login_required
 def reply():
     data = request.form
-    print("Received form data:", data)
+    
 
     message_id = data.get('message_id')
     content = data.get('content')
@@ -520,7 +556,7 @@ def send_password_reset_email(user):
     
     try:
         mail.send(msg)
-        print(f"Sent email to {user['email']}")
+        
     except Exception as e:
         print(f"Failed to send email: {e}")
 def generate_reset_token(user):
@@ -542,8 +578,11 @@ def get_response():
         if not user_input:
             raise ValueError("No input provided")
 
-        # Retrieve conversation history from session
-        conversation_history = session.get('conversation_history', [])
+        user_id = session.get('user_id')
+
+        # Retrieve conversation history from the database
+        conversation_history = conversations_collection.find_one({'user_id': user_id}, {'_id': 0, 'history': 1})
+        conversation_history = conversation_history['history'] if conversation_history else []
 
         # Append the new user input to the conversation history
         conversation_history.append({"role": "user", "content": user_input})
@@ -553,16 +592,36 @@ def get_response():
         # Append the bot response to the conversation history
         conversation_history.append({"role": "assistant", "content": response_text})
 
-        # Save the updated conversation history in session
-        session['conversation_history'] = conversation_history
+        # Update the conversation history in the database
+        conversations_collection.update_one(
+            {'user_id': user_id},
+            {'$set': {'history': conversation_history}},
+            upsert=True
+        )
 
-        log_user_activity(session.get('user_id'), "chat_interaction", {"user_input": user_input, "response": response_text})
+        log_user_activity(user_id, "chat_interaction", {"user_input": user_input, "response": response_text})
 
         return jsonify({'response': response_text})
     except Exception as e:
         app.logger.error(f"Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500 
+@app.route('/get-conversation-history', methods=['GET'])
+def get_conversation_history():
+    try:
+        user_id = session.get('user_id')
+
+        if not user_id:
+            return jsonify({'error': 'User not logged in'}), 401
+
+        # Retrieve conversation history from the database
+        conversation_history = conversations_collection.find_one({'user_id': user_id}, {'_id': 0, 'history': 1})
+        conversation_history = conversation_history['history'] if conversation_history else []
+
+        return jsonify({'conversation_history': conversation_history})
+    except Exception as e:
+        app.logger.error(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
-    
+
 @app.route('/api/weekly-active-users')
 def weekly_active_users():
     end_of_day = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
@@ -661,8 +720,11 @@ def chatbot():
         data = request.json
         user_input = data.get('message', '')
 
-        # Retrieve conversation history from session
-        conversation_history = session.get('conversation_history', [])
+        user_id = session.get('user_id')
+
+        # Retrieve conversation history from the database
+        conversation_history = conversations_collection.find_one({'user_id': user_id}, {'_id': 0, 'history': 1})
+        conversation_history = conversation_history['history'] if conversation_history else []
 
         # Append the new user input to the conversation history
         conversation_history.append({"role": "user", "content": user_input})
@@ -672,8 +734,12 @@ def chatbot():
         # Append the bot response to the conversation history
         conversation_history.append({"role": "assistant", "content": response})
 
-        # Save the updated conversation history in session
-        session['conversation_history'] = conversation_history
+        # Update the conversation history in the database
+        conversations_collection.update_one(
+            {'user_id': user_id},
+            {'$set': {'history': conversation_history}},
+            upsert=True
+        )
 
         return jsonify({'reply': response})
     except Exception as e:
@@ -682,7 +748,6 @@ def chatbot():
 
 def generate_response(conversation_history):
     try:
-        # Create a chat completion using the fine-tuned GPT-3.5 Turbo model
         completion = openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
@@ -701,12 +766,29 @@ def generate_response(conversation_history):
             ] + conversation_history
         )
 
-        # Extract the model's response content
         model_response = completion.choices[0].message.content.strip()
-
         return model_response
     except Exception as e:
         return str(e)
+@app.route('/verify-doctor/<doctor_id>', methods=['POST'])
+def verify_doctor(doctor_id):
+    try:
+        # Update the doctor document to set 'verified' to True
+        doctors_collection.update_one(
+            {"_id": ObjectId(doctor_id)},
+            {"$set": {"verified": True}}
+        )
+        flash("Doctor verified successfully!", "success")
+    except Exception as e:
+        flash(f"An error occurred while verifying the doctor: {str(e)}", "danger")
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin')
+def admin_dashboard():
+    doctors = list(doctors_collection.find())
+    print("Doctors found:", doctors)  # Debug print
+    return render_template('admin.html', doctors=doctors)
+
 @app.route('/notifications')
 @login_required
 def notifications():
@@ -749,9 +831,6 @@ def doctor_detail(doctor_id):
     reviews = list(reviews_data)
 
     return render_template("details.html", doctor=doctor, reviews=reviews)
-@app.route('/messag')
-def messag():
-    return render_template('message.html')
 
 @app.route("/api/doctors", methods=["GET"])
 def api_doctors():
@@ -865,28 +944,16 @@ def profile():
         "name": f"{current_user.first_name} {current_user.last_name}",
         "email": current_user.email,
         "role": current_user.role,
-        "avatar": current_user.avatar,  # Assuming you have an avatar URL stored
+        "avatar": current_user.avatar,
         "contact": current_user.contact,
     }
     
     # Fetch appointments
     appointments = appointments_collection.find({"patient_id": current_user.id})
-    appointment_list = []
-    for appointment_data in appointments:
-        appointment = Appointment(appointment_data).to_dict()
-        
-        # Fetch doctor's name
-        doctor = doctors_collection.find_one({"_id": ObjectId(appointment['doctor_id'])})
-        if doctor:
-            appointment['doctor_name'] = f"{doctor.get('first_name', '')} {doctor.get('last_name', '')}"
-        else:
-            appointment['doctor_name'] = "Unknown Doctor"
-        
-        appointment_list.append(appointment)
+    appointment_list = [Appointment(appointment).to_dict() for appointment in appointments]
     
     # Fetch messages
-    messages =  list(messages_collection.find({"receiver_id": current_user.id}))
-    
+    messages = list(messages_collection.find({"receiver_id": str(current_user.id)}))
     for message in messages:
         doctor = users_collection.find_one({"_id": ObjectId(message["sender_id"])})
         if doctor:
@@ -894,29 +961,29 @@ def profile():
             message['avatar'] = f"{doctor.get('avatar', '')}"
         else:
             message["doctor_name"] = "Unknown"
+        print("Doctor details for message:", doctor)  # Debug print
     message_list = [Message(message).to_dict() for message in messages]
-        # Fetch replies
-    replies = list(replies_collection.find({"receiver_id": current_user.id}))
+    
+    # Fetch replies
+    replies = list(replies_collection.find({"receiver_id": str(current_user.id)}))
     for reply in replies:
         doctor = users_collection.find_one({"_id": ObjectId(reply["sender_id"])})
-        
         if doctor:
             reply["doctor_name"] = f"Dr. {doctor.get('first_name', '')} {doctor.get('last_name', '')}"
-            
         else:
             reply["doctor_name"] = "Unknown"
-
+        print("Doctor details for reply:", doctor)  # Debug print
     reply_list = [Reply(reply).to_dict() for reply in replies]
-    return render_template('profile.html', user=user, appointments=appointment_list, messages=message_list,replies=reply_list)
+
+    return render_template('profile.html', user=user, appointments=appointment_list, messages=message_list, replies=reply_list)
 
 @app.route("/consultations")
 def consultations():
-    doctors_data = doctors_collection.find({})
+    # Find only verified doctors
+    doctors_data = doctors_collection.find({"verified": True})
     doctors = [Doctor(doctor).to_dict() for doctor in doctors_data]
 
     return render_template("consultations.html", doctors=doctors)
-
-
 
 @app.route("/successful_register")
 def successful_register():
@@ -951,7 +1018,7 @@ def doctors_dashboard():
             appointment['patient_avatar'] = ""
             appointment['patient_contact']=""
 
-        print(f"Appointment: {appointment}, Patient ID: {patient_id}")
+    
 
     for message in messages:
         patient = users_collection.find_one({"_id": ObjectId(message["sender_id"])})
@@ -959,7 +1026,7 @@ def doctors_dashboard():
             message["patient_name"] = f"{patient.get('first_name', '')} {patient.get('last_name', '')}"
         else:
             message["patient_name"] = "Unknown"
-        print(f"Message: {message}")
+    
 
     return render_template("doctors_dashboard.html", appointments=appointments_data, messages=messages)
 @app.route("/update_appointment_status", methods=["POST"])
