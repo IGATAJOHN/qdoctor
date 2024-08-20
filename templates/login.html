@@ -7,6 +7,10 @@
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
 <body class="flex items-center justify-center min-h-screen bg-gray-100">
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-5 right-5 space-y-2 z-50"></div>
+
     <div class="flex flex-col md:flex-row bg-white shadow-lg rounded-lg overflow-hidden w-full max-w-4xl">
         <div class="md:w-1/2 bg-blue-200 p-6 flex flex-col justify-center items-center">
             <img src="{{ url_for('static', filename='assets/img/logs.png') }}" alt="Doctor Illustration" class="w-48 md:w-64">
@@ -20,11 +24,11 @@
             <h2 class="text-2xl font-bold text-center text-blue-800 mb-6">Welcome back</h2>
             <form method="POST" action="{{ url_for('login') }}">
                 <div class="mb-4">
-                    <label for="email" class="block text-gray-700">Email address</label>
+                    <label for="email" class="block text-gray-700">Email address<span style="color:red">*</span></label>
                     <input type="email" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="email" name="email" required>
                 </div>
                 <div class="mb-4">
-                    <label for="password" class="block text-gray-700">Password</label>
+                    <label for="password" class="block text-gray-700">Password<span style="color:red">*</span></label>
                     <div class="relative">
                         <input type="password" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="password" name="password" placeholder="********" required>
                         <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-700">
@@ -40,6 +44,7 @@
             </form>
         </div>
     </div>
+
     <script>
         document.getElementById('togglePassword').addEventListener('click', function () {
             const passwordField = document.getElementById('password');
@@ -47,6 +52,27 @@
             passwordField.setAttribute('type', type);
             this.classList.toggle('fa-eye-slash');
             this.classList.toggle('fa-eye');
+        });
+
+        document.addEventListener("DOMContentLoaded", function() {
+            const toastContainer = document.getElementById("toast-container");
+            const flashMessages = {{ get_flashed_messages(with_categories=true) | tojson }};
+            
+            flashMessages.forEach(function(message) {
+                const toast = document.createElement("div");
+                toast.className = "bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg mb-2 transition duration-300 transform";
+                if (message[0] === "error") {
+                    toast.className = "bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg mb-2 transition duration-300 transform";
+                }
+                toast.innerText = message[1];
+                toastContainer.appendChild(toast);
+
+                // Automatically remove the toast after 3 seconds
+                setTimeout(() => {
+                    toast.classList.add('opacity-0');
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            });
         });
     </script>
 </body>
