@@ -437,6 +437,9 @@ def register():
 def review():
     return render_template("review.html")
 
+from flask import flash, redirect, url_for, session, render_template
+from flask_login import login_user
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -456,6 +459,8 @@ def login():
                     {"_id": doctor["_id"]},
                     {"$set": {"online": True}}
                 )
+                
+                flash("Login successful! Welcome, Doctor.", "success")
             else:
                 flash("Your account is still under review. Please wait for verification.", "danger")
                 return redirect(url_for("login"))
@@ -466,7 +471,9 @@ def login():
             if normal_user and check_password_hash(normal_user['password'], password):
                 user = User(normal_user)
                 session['user_id'] = str(normal_user['_id'])
-
+                
+                flash("Login successful! Welcome.", "success")
+        
         if user:
             login_user(user)
             if user.role == 'doctor':
@@ -474,7 +481,7 @@ def login():
             else:
                 return redirect(url_for('vitals'))
         else:
-            flash('Login failed. Check your email and password.')
+            flash('Login failed. Check your email and password.', "error")
 
     return render_template('login.html')
 
