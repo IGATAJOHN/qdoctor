@@ -20,6 +20,7 @@ from flask_login import (
 from flask_session import Session
 from pymongo import MongoClient
 import os
+import re
 from datetime import datetime,timedelta
 from flask_socketio import SocketIO, join_room, leave_room, send, emit
 from itsdangerous import URLSafeTimedSerializer
@@ -57,14 +58,7 @@ api_key = os.getenv("OPENAI_API_KEY")
 socketio = SocketIO(app, cors_allowed_origins="*")
 openai_client = OpenAI(api_key=api_key)
 
-# Configuration for email
-app.config["MAIL_SERVER"] = "smtp.gmail.com"
-app.config["MAIL_PORT"] = 465
-app.config["MAIL_USE_SSL"] = True
-app.config["MAIL_USERNAME"] = "igatusjohn15@gmail.com"
-app.config["MAIL_PASSWORD"] = "cxbz fymx nfim hvrr"
-app.config["MAIL_DEFAULT_SENDER"] = "igatusjohn15@gmail.com"
-app.config["SECURITY_PASSWORD_SALT"] = "e33f8aa37685ca765b9d5613c0e41c0b"
+
 mail = Mail(app)
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = False
@@ -72,11 +66,18 @@ app.config['SESSION_USE_SIGNER'] = True
 app.config['SESSION_KEY_PREFIX'] = 'myapp:'
 
 Session(app)
+# Allowed file extensions
+ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+ALLOWED_DOCUMENT_EXTENSIONS = {'pdf'}
 
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+def allowed_file(filename, allowed_extensions):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
 
+def is_valid_email(email):
+    return re.match(r"[^@]+@[^@]+\.[^@]+", email)
 
+def is_valid_phone(phone):
+    return re.match(r"^[0-9]{10,15}$", phone)
 # Secret key for generating reset tokens
 serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"])
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -295,6 +296,7 @@ def user_list():
 def users():
     return render_template("users.html")
 
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
@@ -312,34 +314,6 @@ def register():
         online = False
         rating = 0
 
-        # Handle file upload for avatar
-        avatar = request.files.get('doctorAvatar')
-        if avatar:
-            filename = secure_filename(avatar.filename)
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            relative_path = os.path.relpath(file_path, 'static')  # Make the path relative to 'static' folder
-            avatar.save(file_path)
-        else:
-            relative_path = None
-
-        # Handle file uploads for medical documents
-        medical_license = request.files.get('medical_license')
-        medical_school_certificate = request.files.get('medical_school_certificate')
-        nysc_certificate = request.files.get('nysc_certificate')
-        
-        def save_document(doc):
-            if doc:
-                doc_filename = secure_filename(doc.filename)
-                doc_path = os.path.join(app.config['UPLOAD_FOLDER'], doc_filename)
-                doc_relative_path = os.path.relpath(doc_path, 'static')
-                doc.save(doc_path)
-                return doc_relative_path
-            return None
-        
-        medical_license_path = save_document(medical_license)
-        medical_school_certificate_path = save_document(medical_school_certificate)
-        nysc_certificate_path = save_document(nysc_certificate)
-
         # Validate form data
         if not first_name or not last_name or not email or not password or not confirm_password:
             flash("All fields are required.", "danger")
@@ -347,6 +321,48 @@ def register():
 
         if password != confirm_password:
             flash("Passwords do not match.", "danger")
+            return redirect(url_for("register"))
+
+        if not is_valid_email(email):
+            flash("Invalid email address.", "danger")
+            return redirect(url_for("register"))
+
+        if not is_valid_phone(contact):
+            flash("Invalid phone number. It should contain only digits and be between 10 to 15 digits.", "danger")
+            return redirect(url_for("register"))
+
+        # Handle file upload for avatar
+        avatar = request.files.get('doctorAvatar')
+        if avatar:
+            if allowed_file(avatar.filename, ALLOWED_IMAGE_EXTENSIONS):
+                filename = secure_filename(avatar.filename)
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                relative_path = os.path.relpath(file_path, 'static')  # Make the path relative to 'static' folder
+                avatar.save(file_path)
+            else:
+                flash("Avatar must be a photo (png, jpg, jpeg).", "danger")
+                return redirect(url_for("register"))
+        else:
+            relative_path = None
+
+        # Handle file uploads for medical documents
+        def save_document(doc):
+            if doc and allowed_file(doc.filename, ALLOWED_DOCUMENT_EXTENSIONS):
+                doc_filename = secure_filename(doc.filename)
+                doc_path = os.path.join(app.config['UPLOAD_FOLDER'], doc_filename)
+                doc_relative_path = os.path.relpath(doc_path, 'static')
+                doc.save(doc_path)
+                return doc_relative_path
+            elif doc:
+                flash("Medical documents must be in PDF format.", "danger")
+                return None
+            return None
+        
+        medical_license_path = save_document(request.files.get('medical_license'))
+        medical_school_certificate_path = save_document(request.files.get('medical_school_certificate'))
+        nysc_certificate_path = save_document(request.files.get('nysc_certificate'))
+
+        if not medical_license_path or not medical_school_certificate_path or not nysc_certificate_path:
             return redirect(url_for("register"))
 
         # Hash the password
@@ -373,6 +389,7 @@ def register():
             "nysc_certificate": nysc_certificate_path,
             "verified": False
         }
+
         users_data = {
             "first_name": first_name,
             "last_name": last_name,
@@ -392,8 +409,8 @@ def register():
                     if '\\' in doctor['avatar']:
                         updated_avatar = doctor['avatar'].replace('\\', '/')
                         doctors_collection.update_one(
-                         {'_id': doctor['_id']},
-                        {'$set': {'avatar': updated_avatar}}
+                            {'_id': doctor['_id']},
+                            {'$set': {'avatar': updated_avatar}}
                         )
                 flash("Registration successful! Your account is under review.", "success")
                 return redirect(url_for("review"))
@@ -405,8 +422,8 @@ def register():
                     if '\\' in user['avatar']:
                         updated_avatar = user['avatar'].replace('\\', '/')
                         users_collection.update_one(
-                         {'_id': user['_id']},
-                        {'$set': {'avatar': updated_avatar}}
+                            {'_id': user['_id']},
+                            {'$set': {'avatar': updated_avatar}}
                         )
                 flash("Registration successful! You can now log in.", "success")
                 return redirect(url_for("login"))
@@ -416,7 +433,6 @@ def register():
             return redirect(url_for("register"))
         
     return render_template("register.html")
-
 @app.route("/review")
 def review():
     return render_template("review.html")
@@ -533,43 +549,7 @@ def reply():
 
     return redirect(url_for('messages'))
 
-@app.route("/recover", methods=["GET", "POST"])
-def recover():
-    if request.method == "POST":
-        email = request.form.get("email")
-        user = users_collection.find_one({"email": email}) or doctors_collection.find_one({"email": email})
-        if user:
-            send_password_reset_email(user)
-            flash("A password reset email has been sent.", "info")
-        else:
-            flash("No account associated with this email.", "error")
-        return redirect(url_for("password_reset_mail_sent"))
-    return render_template("recover.html")
-def send_password_reset_email(user):
-    token = generate_reset_token(user)
-    reset_url = url_for("reset_password", token=token, _external=True)
-    
-    msg = Message(subject="Password Reset Request",
-                  recipients=[user['email']],
-                  body=f"To reset your password, visit the following link: {reset_url}\n\n"
-                       "If you did not make this request, please ignore this email.")
-    
-    try:
-        mail.send(msg)
-        
-    except Exception as e:
-        print(f"Failed to send email: {e}")
-def generate_reset_token(user):
-    return serializer.dumps(user['email'], salt=app.config["SECURITY_PASSWORD_SALT"])
 
-def confirm_reset_token(token, expiration=3600):
-    try:
-        email = serializer.loads(
-            token, salt=app.config["SECURITY_PASSWORD_SALT"], max_age=expiration
-        )
-    except:
-        return False
-    return email
 @app.route('/get-response', methods=['POST'])
 def get_response():
     try:
@@ -679,32 +659,6 @@ def daily_active_users():
 
     count = list(daily_active_users)[0]['daily_active_users'] if daily_active_users else 0
     return jsonify({'count': count})
-@app.route("/reset_password/<token>", methods=["GET", "POST"])
-def reset_password(token):
-    email = confirm_reset_token(token)
-    if not email:
-        flash("The reset link is invalid or has expired.", "error")
-        return redirect(url_for("recover"))
-    
-    if request.method == "POST":
-        password = request.form.get("password")
-        # Update the user's password in the database
-        if users_collection.find_one({"email": email}):
-            users_collection.update_one({"email": email}, {"$set": {"password": password}})
-        elif doctors_collection.find_one({"email": email}):
-            doctors_collection.update_one({"email": email}, {"$set": {"password": password}})
-        
-        flash("Your password has been reset!", "success")
-        return redirect(url_for("login"))
-
-    return render_template("reset_password.html", token=token)
-@app.route("/password_reset_mail_sent")
-def password_reset_mail_sent():
-    return render_template("password_reset_mail_sent.html")
-
-@app.route("/new_password_set")
-def new_password_set():
-    return render_template("new_password_set.html")
 
 def log_user_activity(user_id, event, details=None):
     log_entry = {
