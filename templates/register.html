@@ -6,8 +6,12 @@
     <title>Register</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <script src="https://kit.fontawesome.com/yourkit.js" crossorigin="anonymous"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" rel="stylesheet"/>
+
 </head>
 <body class="bg-gray-100 h-screen flex justify-center items-center">
+    <div id="toast-container" class="fixed top-5 right-5 z-50"></div>
+
     <div class="flex flex-col md:flex-row w-full md:w-3/4 lg:w-2/3 h-full md:h-3/4 bg-white rounded-lg overflow-hidden shadow-lg">
         <div class="md:w-1/2 p-6 md:p-12 bg-blue-200 flex flex-col items-center justify-center">
             <img src="{{url_for('static',filename='assets/img/n.png')}}" alt="Doctor Illustration" class="w-48 md:w-64">
@@ -19,7 +23,7 @@
                 <img src="{{url_for('static',filename='assets/img/q12.png')}}" alt="Quantum Doctor Logo" class="h-24 w-auto">
             </div>
             <h2 class="text-2xl text-center text-blue-800 mb-6">Create an account</h2>
-            <form method="POST" action="{{ url_for('register') }}" enctype="multipart/form-data">
+            <form id="registrationForm" method="POST" action="{{ url_for('register') }}" enctype="multipart/form-data">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                         <label for="first_name" class="block text-gray-700">First name<span style="color:red">*</span></label>
@@ -37,7 +41,7 @@
                     </div>
                     <div>
                         <label for="contact" class="block text-gray-700">Contact<span style="color:red">*</span></label>
-                        <input type="text" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="contact" name="contact">
+                        <input type="text" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="contact" name="contact" required>
                     </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -53,7 +57,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                         <label for="doctorAvatar" class="block text-gray-700">Photo<span style="color:red">*</span></label>
-                        <input type="file" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="doctorAvatar" name="doctorAvatar">
+                        <input type="file" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="doctorAvatar" name="doctorAvatar" required>
                     </div>
                     <div>
                         <label for="role" class="block text-gray-700">Role<span style="color:red">*</span></label>
@@ -76,11 +80,11 @@
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
-                            <label for="specialization" class="block text-gray-700">About<span style="color:red">*</span></label>
+                            <label for="about" class="block text-gray-700">About<span style="color:red">*</span></label>
                             <input type="text" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="about" name="about">
                         </div>
                         <div>
-                            <label for="location" class="block text-gray-700">Experience<span style="color:red">*</span></label>
+                            <label for="experience" class="block text-gray-700">Experience<span style="color:red">*</span></label>
                             <input type="number" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600" id="experience" name="experience">
                         </div>
                     </div>
@@ -99,30 +103,17 @@
                 </div>
                 <button type="submit" class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200">Register</button>
             </form>
-            
         </div>
     </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+
     <script>
+        // Role selection and doctor-specific fields toggle
         document.getElementById('role').addEventListener('change', function () {
-            var doctorFields = document.getElementById('doctorFields');
-            if (this.value === 'doctor') {
-                doctorFields.style.display = 'block';
-            } else {
-                doctorFields.style.display = 'none';
-            }
+            handleRoleChange();
         });
 
-        document.getElementById('togglePassword').addEventListener('click', function () {
-            const passwordField = document.getElementById('password');
-            const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
-            passwordField.setAttribute('type', type);
-            this.classList.toggle('fa-eye-slash');
-            this.classList.toggle('fa-eye');
-        });
-    
-    handleRoleChange(); // Initialize the visibility of the doctor fields based on the current role selection
-
-
+     // Function to handle role change and toggle doctor fields
 function handleRoleChange() {
     var role = document.getElementById('role').value;
     var doctorFields = document.getElementById('doctorFields');
@@ -131,15 +122,79 @@ function handleRoleChange() {
     if (role === 'doctor') {
         doctorFields.style.display = 'block';
         requiredFields.forEach(function (field) {
-            document.getElementById(field).setAttribute('required', 'required');
+            document.getElementById(field).required = true;
         });
     } else {
         doctorFields.style.display = 'none';
         requiredFields.forEach(function (field) {
-            document.getElementById(field).removeAttribute('required');
+            document.getElementById(field).required = false;
+            document.getElementById(field).value = ''; // Clear values of doctor-specific fields
         });
     }
 }
+
+// Form validation
+document.getElementById('registrationForm').addEventListener('submit', function (event) {
+    var role = document.getElementById('role').value;
+    var password = document.getElementById('password').value;
+    var confirmPassword = document.getElementById('confirm_password').value;
+
+    // Check if passwords match
+    if (password !== confirmPassword) {
+        toastr.error('Passwords do not match!');
+        event.preventDefault(); // Prevent form submission
+    }
+    // Validate contact field (phone number)
+    var contact = document.getElementById('contact').value;
+    var phonePattern = /^[+]?[0-9]{10,14}$/; // Basic phone number validation
+
+    if (!phonePattern.test(contact)) {
+        alert('Please enter a valid phone number!');
+        event.preventDefault(); // Prevent form submission
+    }
+     // Validate doctorAvatar file type
+     var doctorAvatar = document.getElementById('doctorAvatar');
+            var allowedImageExtensions = /(\.jpg|\.jpeg|\.png)$/i;
+
+            if (!allowedImageExtensions.exec(doctorAvatar.value)) {
+                alert('Please upload a valid image file (jpg, jpeg, or png) for the avatar.');
+                doctorAvatar.value = ''; // Clear the invalid file input
+                event.preventDefault(); // Prevent form submission
+            }
+    // Validate doctor-specific fields only if the role is 'doctor'
+    if (role === 'doctor') {
+        // Validate doctorAvatar file type
+        var doctorAvatar = document.getElementById('doctorAvatar');
+        var allowedImageExtensions = /(\.jpg|\.jpeg|\.png)$/i;
+
+        if (!allowedImageExtensions.exec(doctorAvatar.value)) {
+            alert('Please upload a valid image file (jpg, jpeg, or png) for the avatar.');
+            doctorAvatar.value = ''; // Clear the invalid file input
+            event.preventDefault(); // Prevent form submission
+        }
+     // Validate doctorAvatar file type
+     var doctorAvatar = document.getElementById('doctorAvatar');
+            var allowedImageExtensions = /(\.jpg|\.jpeg|\.png)$/i;
+
+            if (!allowedImageExtensions.exec(doctorAvatar.value)) {
+                alert('Please upload a valid image file (jpg, jpeg, or png) for the avatar.');
+                doctorAvatar.value = ''; // Clear the invalid file input
+                event.preventDefault(); // Prevent form submission
+            }
+        // Validate doctor document file types (PDF)
+        var doctorDocuments = ['medical_license', 'medical_school_certificate', 'nysc_certificate'];
+        var allowedDocExtension = /(\.pdf)$/i;
+
+        doctorDocuments.forEach(function (doc) {
+            var documentFile = document.getElementById(doc);
+            if (documentFile && documentFile.style.display !== 'none' && !allowedDocExtension.exec(documentFile.value)) {
+                alert('Please upload a valid PDF file for ' + doc.replace(/_/g, ' ') + '.');
+                documentFile.value = ''; // Clear the invalid file input
+                event.preventDefault(); // Prevent form submission
+            }
+        });
+    }
+});
 
     </script>
 </body>
