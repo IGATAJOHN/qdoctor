@@ -296,7 +296,6 @@ def user_list():
 def users():
     return render_template("users.html")
 
-
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
@@ -323,46 +322,53 @@ def register():
             flash("Passwords do not match.", "danger")
             return redirect(url_for("register"))
 
-        if not is_valid_email(email):
+        # Email validation
+        if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
             flash("Invalid email address.", "danger")
             return redirect(url_for("register"))
 
-        if not is_valid_phone(contact):
-            flash("Invalid phone number. It should contain only digits and be between 10 to 15 digits.", "danger")
+        # Contact validation (basic phone number check)
+        if not re.match(r"^\+?\d{10,15}$", contact):
+            flash("Please enter a valid phone number.", "danger")
             return redirect(url_for("register"))
 
         # Handle file upload for avatar
         avatar = request.files.get('doctorAvatar')
         if avatar:
-            if allowed_file(avatar.filename, ALLOWED_IMAGE_EXTENSIONS):
-                filename = secure_filename(avatar.filename)
-                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                relative_path = os.path.relpath(file_path, 'static')  # Make the path relative to 'static' folder
-                avatar.save(file_path)
-            else:
-                flash("Avatar must be a photo (png, jpg, jpeg).", "danger")
+            if avatar.mimetype not in ['image/png', 'image/jpg', 'image/jpeg']:
+                flash("Please upload a valid image file (png, jpg, jpeg) for the avatar.", "danger")
                 return redirect(url_for("register"))
+            filename = secure_filename(avatar.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            relative_path = os.path.relpath(file_path, 'static')  # Make the path relative to 'static' folder
+            avatar.save(file_path)
         else:
             relative_path = None
 
         # Handle file uploads for medical documents
+        medical_license = request.files.get('medical_license')
+        medical_school_certificate = request.files.get('medical_school_certificate')
+        nysc_certificate = request.files.get('nysc_certificate')
+
         def save_document(doc):
-            if doc and allowed_file(doc.filename, ALLOWED_DOCUMENT_EXTENSIONS):
+            if doc:
+                if doc.mimetype != 'application/pdf':
+                    flash("Please upload a valid PDF file for the medical documents.", "danger")
+                    return None
                 doc_filename = secure_filename(doc.filename)
                 doc_path = os.path.join(app.config['UPLOAD_FOLDER'], doc_filename)
                 doc_relative_path = os.path.relpath(doc_path, 'static')
                 doc.save(doc_path)
                 return doc_relative_path
-            elif doc:
-                flash("Medical documents must be in PDF format.", "danger")
-                return None
             return None
-        
-        medical_license_path = save_document(request.files.get('medical_license'))
-        medical_school_certificate_path = save_document(request.files.get('medical_school_certificate'))
-        nysc_certificate_path = save_document(request.files.get('nysc_certificate'))
 
-        if not medical_license_path or not medical_school_certificate_path or not nysc_certificate_path:
+        medical_license_path = save_document(medical_license)
+        medical_school_certificate_path = save_document(medical_school_certificate)
+        nysc_certificate_path = save_document(nysc_certificate)
+
+        # If role is doctor, ensure medical documents are provided
+        if role == "doctor" and (not medical_license_path or not medical_school_certificate_path or not nysc_certificate_path):
+            flash("All medical documents are required for doctor registration.", "danger")
             return redirect(url_for("register"))
 
         # Hash the password
@@ -389,7 +395,6 @@ def register():
             "nysc_certificate": nysc_certificate_path,
             "verified": False
         }
-
         users_data = {
             "first_name": first_name,
             "last_name": last_name,
@@ -427,18 +432,18 @@ def register():
                         )
                 flash("Registration successful! You can now log in.", "success")
                 return redirect(url_for("login"))
-        
+
         except Exception as e:
             flash(f"An error occurred: {str(e)}", "danger")
             return redirect(url_for("register"))
-        
+
     return render_template("register.html")
+
+
 @app.route("/review")
 def review():
     return render_template("review.html")
 
-from flask import flash, redirect, url_for, session, render_template
-from flask_login import login_user
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
