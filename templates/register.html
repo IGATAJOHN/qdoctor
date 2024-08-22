@@ -133,69 +133,78 @@ function handleRoleChange() {
     }
 }
 
-// Form validation
-document.getElementById('registrationForm').addEventListener('submit', function (event) {
-    var role = document.getElementById('role').value;
-    var password = document.getElementById('password').value;
-    var confirmPassword = document.getElementById('confirm_password').value;
+document.getElementById('registrationForm').addEventListener('submit', function(event) {
+        const avatar = document.getElementById('doctorAvatar').files[0];
+        const certificate = document.getElementById('certificate').files[0];
+        const license = document.getElementById('license').files[0];
+        const medicalSchoolCertificate = document.getElementById('medicalSchoolCertificate').files[0];
+        const contact = document.getElementById('contact').value;
 
-    // Check if passwords match
-    if (password !== confirmPassword) {
-        toastr.error('Passwords do not match!');
-        event.preventDefault(); // Prevent form submission
-    }
-    // Validate contact field (phone number)
-    var contact = document.getElementById('contact').value;
-    var phonePattern = /^[+]?[0-9]{10,14}$/; // Basic phone number validation
+        let isValid = true;
 
-    if (!phonePattern.test(contact)) {
-        alert('Please enter a valid phone number!');
-        event.preventDefault(); // Prevent form submission
-    }
-     // Validate doctorAvatar file type
-     var doctorAvatar = document.getElementById('doctorAvatar');
-            var allowedImageExtensions = /(\.jpg|\.jpeg|\.png)$/i;
-
-            if (!allowedImageExtensions.exec(doctorAvatar.value)) {
-                alert('Please upload a valid image file (jpg, jpeg, or png) for the avatar.');
-                doctorAvatar.value = ''; // Clear the invalid file input
-                event.preventDefault(); // Prevent form submission
-            }
-    // Validate doctor-specific fields only if the role is 'doctor'
-    if (role === 'doctor') {
-        // Validate doctorAvatar file type
-        var doctorAvatar = document.getElementById('doctorAvatar');
-        var allowedImageExtensions = /(\.jpg|\.jpeg|\.png)$/i;
-
-        if (!allowedImageExtensions.exec(doctorAvatar.value)) {
-            alert('Please upload a valid image file (jpg, jpeg, or png) for the avatar.');
-            doctorAvatar.value = ''; // Clear the invalid file input
-            event.preventDefault(); // Prevent form submission
+        // Validate doctorAvatar
+        if (avatar && !['image/png', 'image/jpg', 'image/jpeg'].includes(avatar.type)) {
+            showToast('Please upload an image file (png, jpg, jpeg) for the avatar.', 'error');
+            isValid = false;
         }
-     // Validate doctorAvatar file type
-     var doctorAvatar = document.getElementById('doctorAvatar');
-            var allowedImageExtensions = /(\.jpg|\.jpeg|\.png)$/i;
 
-            if (!allowedImageExtensions.exec(doctorAvatar.value)) {
-                alert('Please upload a valid image file (jpg, jpeg, or png) for the avatar.');
-                doctorAvatar.value = ''; // Clear the invalid file input
-                event.preventDefault(); // Prevent form submission
-            }
-        // Validate doctor document file types (PDF)
-        var doctorDocuments = ['medical_license', 'medical_school_certificate', 'nysc_certificate'];
-        var allowedDocExtension = /(\.pdf)$/i;
+        // Validate certificate
+        if (certificate && certificate.type !== 'application/pdf') {
+            showToast('Please upload a PDF file for the certificate.', 'error');
+            isValid = false;
+        }
 
-        doctorDocuments.forEach(function (doc) {
-            var documentFile = document.getElementById(doc);
-            if (documentFile && documentFile.style.display !== 'none' && !allowedDocExtension.exec(documentFile.value)) {
-                alert('Please upload a valid PDF file for ' + doc.replace(/_/g, ' ') + '.');
-                documentFile.value = ''; // Clear the invalid file input
-                event.preventDefault(); // Prevent form submission
-            }
-        });
+        // Validate license
+        if (license && license.type !== 'application/pdf') {
+            showToast('Please upload a PDF file for the medical license.', 'error');
+            isValid = false;
+        }
+
+        // Validate medical school certificate
+        if (medicalSchoolCertificate && medicalSchoolCertificate.type !== 'application/pdf') {
+            showToast('Please upload a PDF file for the medical school certificate.', 'error');
+            isValid = false;
+        }
+
+        // Validate contact number
+        const phonePattern = /^[0-9]{10,15}$/; // Adjust this regex according to your phone number format
+        if (!phonePattern.test(contact)) {
+            showToast('Please enter a valid phone number.', 'error');
+            isValid = false;
+        }
+
+        // Prevent form submission if not valid
+        if (!isValid) {
+            event.preventDefault();  // Stop form submission
+            return;
+        }
+    });
+
+    function showToast(message, type) {
+        const toastContainer = document.getElementById("toast-container");
+        const toast = document.createElement("div");
+        toast.className = "bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg mb-2 transition duration-300 transform";
+        if (type === "error") {
+            toast.className = "bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg mb-2 transition duration-300 transform";
+        }
+        toast.innerText = message;
+        toastContainer.appendChild(toast);
+
+        // Automatically remove the toast after 3 seconds
+        setTimeout(() => {
+            toast.classList.add('opacity-0');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
     }
-});
 
+    document.addEventListener("DOMContentLoaded", function() {
+        const toastContainer = document.getElementById("toast-container");
+        const flashMessages = {{ get_flashed_messages(with_categories=true) | tojson }};
+        
+        flashMessages.forEach(function(message) {
+            showToast(message[1], message[0]);
+        });
+    });
     </script>
 </body>
 </html>
