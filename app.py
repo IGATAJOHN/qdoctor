@@ -826,62 +826,20 @@ def book_appointment():
 
     result = appointments_collection.insert_one(appointment)
     return jsonify({"message": "Appointment booked successfully", "appointment_id": str(result.inserted_id)}), 201
-def get_vital_status(vital, value):
-    if vital == 'temperature':
-        if value < 36.1:
-            return 'Low', 'text-warning'
-        elif value > 37.2:
-            return 'High', 'text-danger'
-        else:
-            return 'Normal', 'text-success'
-   
-    elif vital == 'heart_rate':
-        if value < 60:
-            return 'Low', 'text-warning'
-        elif value > 100:
-            return 'High', 'text-danger'
-        else:
-            return 'Normal', 'text-success'
-    elif vital == 'blood_oxygen':
-        if value < 95:
-            return 'Low', 'text-danger'
-        else:
-            return 'Normal', 'text-success'
-@app.route('/')
+
+@app.route('/', methods=['GET', 'POST'])
 @login_required
 def vitals():
-    # Fetch the latest vitals from MongoDB for the current user, sorted by the most recent timestamp
-    latest_vitals = vitals_collection.find_one(
-        {"user_id": current_user.id},
-        sort=[("timestamp", -1)]
-    )
-       # Determine vital statuses
-    temperature_status = "Normal" if 36.1 <= latest_vitals['temperature'] <= 37.2 else "Abnormal"
-    blood_pressure_status = "Normal" if "90/60" <= latest_vitals['blood_pressure'] <= "120/80" else "Abnormal"
-    heart_rate_status = "Normal" if 60 <= latest_vitals['heart_rate'] <= 100 else "Abnormal"
-    blood_oxygen_status = "Normal" if latest_vitals['blood_oxygen'] >= 95 else "Low"
-        # Fetch historical vitals (e.g., last 7 records)
-    historical_vitals = list(vitals_collection.find(
-        {"user_id": current_user.id},
-        sort=[("timestamp", -1)]
-    ).limit(7))
-    print(historical_vitals)
-        # Reverse the historical data to plot from oldest to latest
-    historical_vitals.reverse()
+    latest_vitals = vitals_collection.find_one({'user_id': current_user.id}, sort=[('timestamp', -1)])
 
-    # Extract data for the charts
-    temperatures = [vital['temperature'] for vital in historical_vitals]
-    blood_pressures = [vital['blood_pressure'] for vital in historical_vitals]
-    heart_rates = [vital['heart_rate'] for vital in historical_vitals]
-    blood_oxygens = [vital['blood_oxygen'] for vital in historical_vitals]
-       # Get the status and color for each vital sign
-    temperature_statuss, temp_color = get_vital_status('temperature', latest_vitals['temperature'])
-    
-    hr_status, hr_color = get_vital_status('heart_rate', latest_vitals['heart_rate'])
-    bo_status, bo_color = get_vital_status('blood_oxygen', latest_vitals['blood_oxygen'])
-
-    # Handle the case where no vitals data is found
     if latest_vitals is None:
+        # Handle the case where there is no vitals data available
+        latest_vitals = {
+            'temperature': None,
+            'blood_pressure': None,
+            'heart_rate': None,
+            'blood_oxygen': None
+        }
         health_tip = "No recent vitals found to generate a health tip."
     else:
         # Get the current time and round it to the nearest hour
@@ -889,22 +847,42 @@ def vitals():
 
         # Generate the health tip based on the latest vitals data
         health_tip = get_health_tip_for_vitals(latest_vitals, now)
+    def get_status(value, normal_range, is_bp=False):
+        if value is None:
+            return 'No Data', 'text-muted'
+        
+        if is_bp:
+            try:
+                systolic, diastolic = map(float, value.split('/'))
+                normal_systolic_range, normal_diastolic_range = normal_range
+                if normal_systolic_range[0] <= systolic <= normal_systolic_range[1] and \
+                   normal_diastolic_range[0] <= diastolic <= normal_diastolic_range[1]:
+                    return 'Normal', 'text-success'
+                else:
+                    return 'Abnormal', 'text-danger'
+            except (ValueError, TypeError):
+                return 'Invalid Data', 'text-warning'
+        else:
+            try:
+                value = float(value)
+                if normal_range[0] <= value <= normal_range[1]:
+                    return 'Normal', 'text-success'
+                else:
+                    return 'Abnormal', 'text-danger'
+            except (ValueError, TypeError):
+                return 'Invalid Data', 'text-warning'
 
-    return render_template('vitals.html', health_tip=health_tip, latest_vitals=latest_vitals,
-                            temperature_status=temperature_status,
-                           blood_pressure_status=blood_pressure_status,
-                           heart_rate_status=heart_rate_status,
-                           blood_oxygen_status=blood_oxygen_status,
-                             temperatures=temperatures,
-                           blood_pressures=blood_pressures,
-                           heart_rates=heart_rates,
-                           blood_oxygens=blood_oxygens,
-                        temperature_statuss=temperature_statuss, 
-                           temp_color=temp_color,
-                           hr_status=hr_status, 
-                           hr_color=hr_color,
-                           bo_status=bo_status, 
-                           bo_color=bo_color)
+    temperature_status, temp_color = get_status(latest_vitals['temperature'], (36.1, 37.2))
+    bp_status, bp_color = get_status(latest_vitals['blood_pressure'], ((90, 120), (60, 80)), is_bp=True)
+    hr_status, hr_color = get_status(latest_vitals['heart_rate'], (60, 100))
+    bo_status, bo_color = get_status(latest_vitals['blood_oxygen'], (95, 100))
+
+    return render_template('vitals.html', latest_vitals=latest_vitals,health_tip=health_tip,
+                           temperature_status=temperature_status, temp_color=temp_color,
+                           bp_status=bp_status, bp_color=bp_color,
+                           hr_status=hr_status, hr_color=hr_color,
+                           bo_status=bo_status, bo_color=bo_color)
+
 # Dictionary to store the health tips based on user_id and timestamp to avoid regenerating too often
 health_tip_cache = {}
 
@@ -924,8 +902,9 @@ def get_health_tip_for_vitals(latest_vitals, date_time):
 
     messages = [
         {"role": "system", "content": """You are Quantum Doctor, a healthcare assistant, capable of interpreting vital signs,
-                    make sure to extrapolate useful health insights in the simplest possible way for patients to understand."""},
-        {"role": "user", "content": f"Based on the following vitals, provide a practical and actionable health tip: {vitals_info}. You can generate this either in English, Pidgin English"}
+                    make sure to extrapolate useful health insights in the simplest possible way for patients to understand, this could
+         be in english language or pidgin or hausa or ibo or yoruba."""},
+        {"role": "user", "content": f"Based on the following vitals, provide a practical and actionable health tip: {vitals_info}. You can generate this either in English or Pidgin English"}
     ]
 
     # Request a response from the OpenAI API
