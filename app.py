@@ -756,30 +756,7 @@ def admin_dashboard():
     print("Doctors found:", doctors)  # Debug print
     return render_template('admin.html', doctors=doctors)
 
-@app.route('/notifications')
-@login_required
-def notifications():
-    user_id = current_user.id
-    notifications = get_notifications_for_user(user_id)
-    return jsonify({"notifications": notifications})
 
-def get_notifications_for_user(user_id):
-    # Implement this function to fetch notifications for the user from your database
-    notifications = [
-        {"message": "Your appointment is confirmed for tomorrow."},
-        {"message": "You have a new message from Dr. Jane."},
-        {"message": "Remember to take your medication at 9 AM."},
-    ]
-    return notifications
-
-
-health_tips = [
-    "Stay hydrated by drinking at least 8 glasses of water a day.",
-    "Take regular breaks while working to stretch and move around.",
-    "Include more fruits and vegetables in your diet.",
-    "Get at least 7-8 hours of sleep each night.",
-    "Exercise for at least 30 minutes a day."
-]
 # Function to save the uploaded file
 def save_file(file):
     filename = secure_filename(file.filename)
@@ -849,6 +826,27 @@ def book_appointment():
 
     result = appointments_collection.insert_one(appointment)
     return jsonify({"message": "Appointment booked successfully", "appointment_id": str(result.inserted_id)}), 201
+def get_vital_status(vital, value):
+    if vital == 'temperature':
+        if value < 36.1:
+            return 'Low', 'text-warning'
+        elif value > 37.2:
+            return 'High', 'text-danger'
+        else:
+            return 'Normal', 'text-success'
+   
+    elif vital == 'heart_rate':
+        if value < 60:
+            return 'Low', 'text-warning'
+        elif value > 100:
+            return 'High', 'text-danger'
+        else:
+            return 'Normal', 'text-success'
+    elif vital == 'blood_oxygen':
+        if value < 95:
+            return 'Low', 'text-danger'
+        else:
+            return 'Normal', 'text-success'
 @app.route('/')
 @login_required
 def vitals():
@@ -857,6 +855,30 @@ def vitals():
         {"user_id": current_user.id},
         sort=[("timestamp", -1)]
     )
+       # Determine vital statuses
+    temperature_status = "Normal" if 36.1 <= latest_vitals['temperature'] <= 37.2 else "Abnormal"
+    blood_pressure_status = "Normal" if "90/60" <= latest_vitals['blood_pressure'] <= "120/80" else "Abnormal"
+    heart_rate_status = "Normal" if 60 <= latest_vitals['heart_rate'] <= 100 else "Abnormal"
+    blood_oxygen_status = "Normal" if latest_vitals['blood_oxygen'] >= 95 else "Low"
+        # Fetch historical vitals (e.g., last 7 records)
+    historical_vitals = list(vitals_collection.find(
+        {"user_id": current_user.id},
+        sort=[("timestamp", -1)]
+    ).limit(7))
+    print(historical_vitals)
+        # Reverse the historical data to plot from oldest to latest
+    historical_vitals.reverse()
+
+    # Extract data for the charts
+    temperatures = [vital['temperature'] for vital in historical_vitals]
+    blood_pressures = [vital['blood_pressure'] for vital in historical_vitals]
+    heart_rates = [vital['heart_rate'] for vital in historical_vitals]
+    blood_oxygens = [vital['blood_oxygen'] for vital in historical_vitals]
+       # Get the status and color for each vital sign
+    temperature_statuss, temp_color = get_vital_status('temperature', latest_vitals['temperature'])
+    
+    hr_status, hr_color = get_vital_status('heart_rate', latest_vitals['heart_rate'])
+    bo_status, bo_color = get_vital_status('blood_oxygen', latest_vitals['blood_oxygen'])
 
     # Handle the case where no vitals data is found
     if latest_vitals is None:
@@ -868,7 +890,21 @@ def vitals():
         # Generate the health tip based on the latest vitals data
         health_tip = get_health_tip_for_vitals(latest_vitals, now)
 
-    return render_template('vitals.html', health_tip=health_tip, latest_vitals=latest_vitals)
+    return render_template('vitals.html', health_tip=health_tip, latest_vitals=latest_vitals,
+                            temperature_status=temperature_status,
+                           blood_pressure_status=blood_pressure_status,
+                           heart_rate_status=heart_rate_status,
+                           blood_oxygen_status=blood_oxygen_status,
+                             temperatures=temperatures,
+                           blood_pressures=blood_pressures,
+                           heart_rates=heart_rates,
+                           blood_oxygens=blood_oxygens,
+                        temperature_statuss=temperature_statuss, 
+                           temp_color=temp_color,
+                           hr_status=hr_status, 
+                           hr_color=hr_color,
+                           bo_status=bo_status, 
+                           bo_color=bo_color)
 # Dictionary to store the health tips based on user_id and timestamp to avoid regenerating too often
 health_tip_cache = {}
 
@@ -887,7 +923,8 @@ def get_health_tip_for_vitals(latest_vitals, date_time):
                   f"Blood Oxygen: {latest_vitals['blood_oxygen']}%"
 
     messages = [
-        {"role": "system", "content": "You are a helpful health assistant."},
+        {"role": "system", "content": """You are Quantum Doctor, a healthcare assistant, capable of interpreting vital signs,
+                    make sure to extrapolate useful health insights in the simplest possible way for patients to understand."""},
         {"role": "user", "content": f"Based on the following vitals, provide a practical and actionable health tip: {vitals_info}. You can generate this either in English, Pidgin English"}
     ]
 
