@@ -1,5 +1,6 @@
 {% extends "index.html" %}
 {% block content %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <main id="main">
 <div class="container my-5">
     <!-- Header -->
@@ -33,54 +34,54 @@
     <div class="container mt-5">
       <h3 class="text-center mb-4">Current Vitals</h3>
       <div class="row justify-content-center">
-          <div class="col-md-6 mb-4">
-              <div class="card vital-card">
-                  <div class="vital-header">
-                      <i class="fas fa-thermometer-half vital-icon"></i>
-                      <span class="vital-label">Temperature</span>
-                  </div>
-                  <div class="vital-value">{{latest_vitals.temperature}}°C</div>
-                  <div class="vital-status">Normal</div>
-                  <canvas id="tempChart" class="vital-chart"></canvas>
-              </div>
-          </div>
-          <div class="col-md-6 mb-4">
-              <div class="card vital-card">
-                  <div class="vital-header">
-                      <i class="fas fa-tint vital-icon"></i>
-                      <span class="vital-label">Blood Pressure</span>
-                  </div>
-                  <div class="vital-value">{{latest_vitals.blood_pressure}} mmHg</div>
-                  <div class="vital-status">Normal</div>
-                  <canvas id="bpChart" class="vital-chart"></canvas>
-              </div>
-          </div>
-      </div>
-      <div class="row justify-content-center">
-          <div class="col-md-6 mb-4">
-              <div class="card vital-card">
-                  <div class="vital-header">
-                      <i class="fas fa-heartbeat vital-icon"></i>
-                      <span class="vital-label">Heart Rate</span>
-                  </div>
-                  <div class="vital-value">{{latest_vitals.heart_rate}} bpm</div>
-                  <div class="vital-status">Normal</div>
-                  <canvas id="hrChart" class="vital-chart"></canvas>
-              </div>
-          </div>
-          <div class="col-md-6 mb-4">
-              <div class="card vital-card">
-                  <div class="vital-header">
-                      <i class="fas fa-lungs vital-icon"></i>
-                      <span class="vital-label">Blood Oxygen</span>
-                  </div>
-                  <div class="vital-value">{{latest_vitals.blood_oxygen}}%</div>
-                  <div class="vital-status">Normal</div>
-                  <canvas id="boChart" class="vital-chart"></canvas>
-              </div>
-          </div>
-      </div>
-  </div>
+        <div class="col-md-6 mb-4">
+            <div class="card vital-card">
+                <div class="vital-header">
+                    <i class="fas fa-thermometer-half vital-icon"></i>
+                    <span class="vital-label">Temperature</span>
+                </div>
+                <div class="vital-value">{{ latest_vitals.temperature }}°C</div>
+                <div class="vital-status {{ temp_color }}">{{ temperature_statuss }}</div>
+                <canvas id="tempChart" class="vital-chart"></canvas>
+            </div>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="card vital-card">
+                <div class="vital-header">
+                    <i class="fas fa-tint vital-icon"></i>
+                    <span class="vital-label">Blood Pressure</span>
+                </div>
+                <div class="vital-value">{{ latest_vitals.blood_pressure }} mmHg</div>
+                <div class="vital-status">{{ blood_pressure_status }}</div>
+                <canvas id="bpChart" class="vital-chart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="row justify-content-center">
+        <div class="col-md-6 mb-4">
+            <div class="card vital-card">
+                <div class="vital-header">
+                    <i class="fas fa-heartbeat vital-icon"></i>
+                    <span class="vital-label">Heart Rate</span>
+                </div>
+                <div class="vital-value">{{ latest_vitals.heart_rate }} bpm</div>
+                <div class="vital-status {{ hr_color }}">{{ hr_status }}</div>
+                <canvas id="hrChart" class="vital-chart"></canvas>
+            </div>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="card vital-card">
+                <div class="vital-header">
+                    <i class="fas fa-lungs vital-icon"></i>
+                    <span class="vital-label">Blood Oxygen</span>
+                </div>
+                <div class="vital-value">{{ latest_vitals.blood_oxygen }}%</div>
+                <div class="vital-status {{ bo_color }}">{{ bo_status }}</div>
+                <canvas id="boChart" class="vital-chart"></canvas>
+            </div>
+        </div>
+    </div>
+    
 <!-- Update Vitals Modal -->
 <div class="modal fade" id="updateVitalsModal" tabindex="-1" aria-labelledby="updateVitalsModalLabel" aria-hidden="true">
   <div class="modal-dialog">
@@ -148,43 +149,62 @@ document.getElementById('updateVitalsButton').addEventListener('click', function
     });
 
     document.getElementById('saveVitalsButton').addEventListener('click', function() {
-        // Capture the input values from the form
-        const temperature = document.getElementById('temperature').value;
-        const bloodPressure = document.getElementById('bloodPressure').value;
-        const heartRate = document.getElementById('heartRate').value;
-        const bloodOxygen = document.getElementById('bloodOxygen').value;
+    // Capture the input values from the form
+    const temperature = document.getElementById('temperature').value;
+    const bloodPressure = document.getElementById('bloodPressure').value;
+    const heartRate = document.getElementById('heartRate').value;
+    const bloodOxygen = document.getElementById('bloodOxygen').value;
 
-        // Prepare the data to be sent to the server
-        const vitalsData = {
-            temperature: parseFloat(temperature),
-            bloodPressure: bloodPressure,
-            heartRate: parseInt(heartRate),
-            bloodOxygen: parseInt(bloodOxygen),
-            timestamp: new Date().toISOString()  // Optional: add a timestamp
-        };
+    // Prepare the data to be sent to the server
+    const vitalsData = {
+        temperature: parseFloat(temperature),
+        bloodPressure: bloodPressure,
+        heartRate: parseInt(heartRate),
+        bloodOxygen: parseInt(bloodOxygen),
+        timestamp: new Date().toISOString()  // Optional: add a timestamp
+    };
 
-        // Send data to the server via AJAX
-        fetch('/update-vitals', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(vitalsData),
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log('Vitals updated successfully:', data);
-            // Handle success message or notification here if needed
-        })
-        .catch((error) => {
-            console.error('Error updating vitals:', error);
-            // Handle error message or notification here if needed
+    // Send data to the server via AJAX
+    fetch('/update-vitals', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(vitalsData),
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Vitals updated successfully:', data);
+
+        // Show success alert
+        Swal.fire({
+            icon: "success",
+            title: "Vitals Updated",
+            text: "Your vitals have been successfully updated.",
+            timer: 2000,
+            showConfirmButton: false,
+            willClose: () => {
+                window.location.reload(); // Optionally reload the page to see updated vitals
+            }
         });
 
         // Close the modal after saving
         var updateVitalsModal = bootstrap.Modal.getInstance(document.getElementById('updateVitalsModal'));
         updateVitalsModal.hide();
+    })
+    .catch((error) => {
+        console.error('Error updating vitals:', error);
+
+        // Show error alert
+        Swal.fire({
+            icon: "error",
+            title: "Update Failed",
+            text: "There was an error updating your vitals. Please try again later.",
+            showConfirmButton: true
+        });
     });
+});
+
 </script>
 
 </div>
