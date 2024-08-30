@@ -902,9 +902,8 @@ def get_health_tip_for_vitals(latest_vitals, date_time):
 
     messages = [
         {"role": "system", "content": """You are Quantum Doctor, a healthcare assistant, capable of interpreting vital signs,
-                    make sure to extrapolate useful health insights in the simplest possible way for patients to understand, this could
-         be in english language or pidgin or hausa or ibo or yoruba."""},
-        {"role": "user", "content": f"Based on the following vitals, provide a practical and actionable health tip: {vitals_info}. You can generate this either in English or Pidgin English"}
+                    make sure to extrapolate useful health insights in the simplest possible way for patients to understand."""},
+        {"role": "user", "content": f"Based on the following vitals, provide a practical and actionable health tip: {vitals_info}."}
     ]
 
     # Request a response from the OpenAI API
