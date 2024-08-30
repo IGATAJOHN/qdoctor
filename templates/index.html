@@ -94,26 +94,23 @@ body.dark-theme .card {
         <ul>
             {% if current_user.is_authenticated and current_user.role == 'doctor' %}
             <div class="edit-delete-buttons">
-                <li><a href="{{url_for('doctors_dashboard')}}" class="nav-link scrollto active"><i class="bx bx-message"></i> <span>Appointments</span></a></li>
-                <li><a href="{{url_for('messages')}}" class="nav-link scrollto"><i class="bx bx-user"></i> <span>messages</span></a></li>
-          <li><a href="{{url_for('diagnosis')}}" class="nav-link scrollto"><i class="bx bx-user"></i> <span>Diagnosis</span></a></li>
-      
-        
+                <li><a href="{{ url_for('doctors_dashboard') }}" class="nav-link scrollto nav-link-item active"><i class="fas fa-calendar-check"></i> <span>Appointments</span></a></li>
+                <li><a href="{{ url_for('messages') }}" class="nav-link scrollto nav-link-item"><i class="fas fa-envelope"></i> <span>Messages</span></a></li>
+                <li><a href="{{ url_for('diagnosis') }}" class="nav-link scrollto nav-link-item"><i class="fas fa-notes-medical"></i> <span>Diagnosis</span></a></li>
             </div>
-            {% endif %}
-            {% if current_user.is_authenticated and current_user.role == 'user' %}
-          <li><a href="{{url_for('vitals')}}" class="nav-link scrollto active"><i class="bx bx-message"></i> <span>Vitals</span></a></li>
-          <li><a href="{{url_for('profile')}}" class="nav-link scrollto"><i class="bx bx-user"></i> <span>Profile</span></a></li>
-          <li><a href="{{url_for('diagnosis')}}" class="nav-link scrollto"><i class="bx bx-user"></i> <span>Diagnosis</span></a></li>
-          <li><a href="{{url_for('consultations')}}" class="nav-link scrollto"><i class="bx bx-user"></i> <span>Consultations</span></a></li>
-       
-          <li>
-            {% endif %}
-            <a href="#" class="nav-link scrollto" data-bs-toggle="modal" data-bs-target="#logoutModal">
-              <i class="bx bx-exit"></i> <span>Logout</span>
+        {% endif %}
+        {% if current_user.is_authenticated and current_user.role == 'user' %}
+            <li><a href="{{ url_for('vitals') }}" class="nav-link scrollto nav-link-item active"><i class="fas fa-heartbeat"></i> <span>Vitals</span></a></li>
+            <li><a href="{{ url_for('profile') }}" class="nav-link scrollto nav-link-item"><i class="fas fa-user"></i> <span>Profile</span></a></li>
+            <li><a href="{{ url_for('diagnosis') }}" class="nav-link scrollto nav-link-item"><i class="fas fa-notes-medical"></i> <span>Diagnosis</span></a></li>
+            <li><a href="{{ url_for('consultations') }}" class="nav-link scrollto nav-link-item"><i class="fas fa-stethoscope"></i> <span>Consultations</span></a></li>
+        {% endif %}
+        <li>
+            <a href="#" class="nav-link scrollto nav-link-item" data-bs-toggle="modal" data-bs-target="#logoutModal">
+                <i class="fas fa-sign-out-alt"></i> <span>Logout</span>
             </a>
-          </li>
-          
+        </li>
+        
         </ul>
       </nav><!-- .nav-menu -->
     </div>
@@ -153,10 +150,11 @@ body.dark-theme .card {
     
 </body>
 <script>
-  // Function to generate random data
-  function generateData() {
-        return Array.from({ length: 7 }, () => Math.floor(Math.random() * 10 + 35));
-    }
+// Pass the data from Flask to JavaScript
+const temperatures = {{ temperatures | safe }};
+    const bloodPressures = {{ blood_pressures | safe }};
+    const heartRates = {{ heart_rates | safe }};
+    const bloodOxygens = {{ blood_oxygens | safe }};
 
     // Chart color configurations
     const chartColors = {
@@ -181,10 +179,10 @@ body.dark-theme .card {
     // Initialize Chart.js charts
     function initCharts() {
         const charts = [
-            { id: 'tempChart', color: chartColors.temperature },
-            { id: 'bpChart', color: chartColors.bloodPressure },
-            { id: 'hrChart', color: chartColors.heartRate },
-            { id: 'boChart', color: chartColors.bloodOxygen }
+            { id: 'tempChart', data: temperatures, color: chartColors.temperature },
+            { id: 'bpChart', data: bloodPressures, color: chartColors.bloodPressure },
+            { id: 'hrChart', data: heartRates, color: chartColors.heartRate },
+            { id: 'boChart', data: bloodOxygens, color: chartColors.bloodOxygen }
         ];
         const labels = ['', '', '', '', '', '', ''];
 
@@ -195,7 +193,7 @@ body.dark-theme .card {
                 data: {
                     labels: labels,
                     datasets: [{
-                        data: generateData(),
+                        data: chart.data,
                         borderColor: chart.color.border,
                         backgroundColor: chart.color.fill,
                         borderWidth: 2,
@@ -255,6 +253,16 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.classList.add('light-theme'); // default to light theme
     }
 });
-
+const navLinks = document.querySelectorAll('.nav-link-item');
+navLinks.forEach(link => {
+        link.addEventListener('click', function() {
+            // Remove 'active' class from all nav links
+            navLinks.forEach(link => link.classList.remove('active'));
+            
+            // Add 'active' class to the clicked link
+            this.classList.add('active');
+        });
+    });
 </script>
 </html>
+<!-- bfdbfe -->
