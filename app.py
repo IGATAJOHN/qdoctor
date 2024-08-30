@@ -48,7 +48,7 @@ replies_collection = db.replies
 user_activity_collection = db.user_activity
 # Define the collection
 conversations_collection = db.conversations
-
+vitals_collection = db.vitals
 # Define a path to save uploaded files
 UPLOAD_FOLDER = "static/uploads"
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
@@ -221,6 +221,7 @@ class Message:
             'content': self.content,
             'timestamp': self.timestamp
         }
+
 class Reply:
     def __init__(self, reply_data):
         self.id = str(reply_data['_id'])
@@ -851,15 +852,60 @@ def book_appointment():
 @app.route('/')
 @login_required
 def vitals():
-    today = datetime.today().date()
-    health_tip = get_health_tip_for_day(today)
-    return render_template('vitals.html', health_tip=health_tip)
+    # Fetch the latest vitals from MongoDB for the current user, sorted by the most recent timestamp
+    latest_vitals = vitals_collection.find_one(
+        {"user_id": current_user.id},
+        sort=[("timestamp", -1)]
+    )
 
+    # Handle the case where no vitals data is found
+    if latest_vitals is None:
+        health_tip = "No recent vitals found to generate a health tip."
+    else:
+        # Get the current time and round it to the nearest hour
+        now = datetime.now().replace(minute=0, second=0, microsecond=0)
 
-def get_health_tip_for_day(date):
-    random.seed(date.toordinal())
-    return random.choice(health_tips)
+        # Generate the health tip based on the latest vitals data
+        health_tip = get_health_tip_for_vitals(latest_vitals, now)
 
+    return render_template('vitals.html', health_tip=health_tip, latest_vitals=latest_vitals)
+# Dictionary to store the health tips based on user_id and timestamp to avoid regenerating too often
+health_tip_cache = {}
+
+def get_health_tip_for_vitals(latest_vitals, date_time):
+    # Generate a cache key based on user_id and rounded time
+    cache_key = (latest_vitals['user_id'], date_time)
+
+    # Check if there's a cached health tip for this user and time
+    if cache_key in health_tip_cache:
+        return health_tip_cache[cache_key]
+
+    # Create the prompt using the latest vitals
+    vitals_info = f"Heart Rate: {latest_vitals['heart_rate']} bpm, " \
+                  f"Blood Pressure: {latest_vitals['blood_pressure']}, " \
+                  f"Body Temperature: {latest_vitals['temperature']}°F, " \
+                  f"Blood Oxygen: {latest_vitals['blood_oxygen']}%"
+
+    messages = [
+        {"role": "system", "content": "You are a helpful health assistant."},
+        {"role": "user", "content": f"Based on the following vitals, provide a practical and actionable health tip: {vitals_info}. You can generate this either in English, Pidgin English"}
+    ]
+
+    # Request a response from the OpenAI API
+    response = openai_client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=messages,
+        max_tokens=100,
+        temperature=0.7
+    )
+
+    # Extract the health tip from the response
+    health_tip = response.choices[0].message.content.strip()
+
+    # Cache the generated health tip to avoid regenerating too often
+    health_tip_cache[cache_key] = health_tip
+
+    return health_tip
 @app.route("/messages")
 @login_required
 def messages():
@@ -954,7 +1000,50 @@ def consultations():
 @app.route("/successful_register")
 def successful_register():
     return render_template("successful_register.html")
+@app.route('/get-vitals')
+@login_required
+def get_vitals():
+    latest_vitals = vitals_collection.find_one(
+        {"user_id": current_user.id},
+        sort=[("timestamp", -1)]
+    )
+    
+    if latest_vitals:
+        vitals_data = {
+            "temperature": latest_vitals.get("temperature"),
+            "bloodPressure": latest_vitals.get("blood_pressure"),
+            "heartRate": latest_vitals.get("heart_rate"),
+            "bloodOxygen": latest_vitals.get("blood_oxygen")
+        }
+    else:
+        vitals_data = {}
 
+    return jsonify(vitals_data)
+@app.route('/update-vitals', methods=['POST'])
+@login_required
+def update_vitals():
+    vitals_data = request.get_json()
+
+    # Extract the data from the request
+    temperature = vitals_data.get('temperature')
+    blood_pressure = vitals_data.get('bloodPressure')
+    heart_rate = vitals_data.get('heartRate')
+    blood_oxygen = vitals_data.get('bloodOxygen')
+    
+    # Create a new Vitals record
+    new_vitals = {
+        "user_id": current_user.id,
+        "temperature": temperature,
+        "blood_pressure": blood_pressure,
+        "heart_rate": heart_rate,
+        "blood_oxygen": blood_oxygen,
+        "timestamp": datetime.utcnow()
+    }
+    
+    # Save the new vitals to the database
+    vitals_collection.insert_one(new_vitals)
+
+    return jsonify({"status": "success", "message": "Vitals updated successfully!"})
 
 @app.route("/diagnosis")
 def diagnosis():
