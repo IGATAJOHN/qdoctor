@@ -41,7 +41,7 @@
                     <span class="vital-label">Temperature</span>
                 </div>
                 <div class="vital-value">{{ latest_vitals.temperature }}°C</div>
-                <div class="vital-status {{ temp_color }}">{{ temperature_statuss }}</div>
+                <div class="vital-status {{ temp_color }}">{{ temperature_status }}</div>
                 <canvas id="tempChart" class="vital-chart"></canvas>
             </div>
         </div>
@@ -52,7 +52,7 @@
                     <span class="vital-label">Blood Pressure</span>
                 </div>
                 <div class="vital-value">{{ latest_vitals.blood_pressure }} mmHg</div>
-                <div class="vital-status">{{ blood_pressure_status }}</div>
+                <div class="vital-status {{ bp_color }}">{{ bp_status }}</div>
                 <canvas id="bpChart" class="vital-chart"></canvas>
             </div>
         </div>
