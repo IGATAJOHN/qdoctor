@@ -908,9 +908,8 @@ def get_health_tip_for_vitals(latest_vitals, date_time):
 
     messages = [
         {"role": "system", "content": """You are Quantum Doctor, a healthcare assistant capable of interpreting vital signs.
-                                          Make sure to extrapolate useful health insights in the simplest possible way for patients to understand. 
-                                          This could be in English, Pidgin, Hausa, Igbo, or Yoruba."""},
-        {"role": "user", "content": f"Based on the following vitals, provide a practical and actionable health tip: {vitals_info}. You can generate this in English or Pidgin English."}
+                                          Make sure to extrapolate useful health insights in the simplest possible way for patients to understand. """},
+        {"role": "user", "content": f"Based on the following vitals, provide a practical and actionable health tip: {vitals_info}."}
     ]
 
     # Request a response from the OpenAI API
@@ -1042,33 +1041,31 @@ def get_vitals():
         vitals_data = {}
 
     return jsonify(vitals_data)
-@app.route('/update_vitals', methods=['POST'])
+@app.route('/update-vitals', methods=['POST'])
 @login_required
 def update_vitals():
-    data = request.json
-    user_id = current_user.id
-    date_time = datetime.now().strftime('%Y-%m-%d %H:%M')
+    vitals_data = request.get_json()
 
-    # Assuming data contains the latest vital signs
-    latest_vitals = {
-        'user_id': user_id,
-        'heart_rate': data.get('heart_rate'),
-        'blood_pressure': data.get('blood_pressure'),
-        'temperature': data.get('temperature'),
-        'blood_oxygen': data.get('blood_oxygen')
+    # Extract the data from the request
+    temperature = vitals_data.get('temperature')
+    blood_pressure = vitals_data.get('bloodPressure')
+    heart_rate = vitals_data.get('heartRate')
+    blood_oxygen = vitals_data.get('bloodOxygen')
+    
+    # Create a new Vitals record
+    new_vitals = {
+        "user_id": current_user.id,
+        "temperature": temperature,
+        "blood_pressure": blood_pressure,
+        "heart_rate": heart_rate,
+        "blood_oxygen": blood_oxygen,
+        "timestamp": datetime.utcnow()
     }
+    
+    # Save the new vitals to the database
+    vitals_collection.insert_one(new_vitals)
 
-    # Save the latest vitals to the database
-    vitals_collection.insert_one(latest_vitals)
-
-    # Generate a health tip based on the latest vitals
-    health_tip = get_health_tip_for_vitals(latest_vitals, date_time)
-
-    # Return the health tip as part of the response
-    return jsonify({
-        'message': 'Vitals updated successfully.',
-        'health_tip': health_tip
-    }), 200
+    return jsonify({"status": "success", "message": "Vitals updated successfully!"})
 
 @app.route("/diagnosis")
 def diagnosis():
