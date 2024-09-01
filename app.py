@@ -1042,31 +1042,33 @@ def get_vitals():
         vitals_data = {}
 
     return jsonify(vitals_data)
-@app.route('/update-vitals', methods=['POST'])
+@app.route('/update_vitals', methods=['POST'])
 @login_required
 def update_vitals():
-    vitals_data = request.get_json()
+    data = request.json
+    user_id = current_user.id
+    date_time = datetime.now().strftime('%Y-%m-%d %H:%M')
 
-    # Extract the data from the request
-    temperature = vitals_data.get('temperature')
-    blood_pressure = vitals_data.get('bloodPressure')
-    heart_rate = vitals_data.get('heartRate')
-    blood_oxygen = vitals_data.get('bloodOxygen')
-    
-    # Create a new Vitals record
-    new_vitals = {
-        "user_id": current_user.id,
-        "temperature": temperature,
-        "blood_pressure": blood_pressure,
-        "heart_rate": heart_rate,
-        "blood_oxygen": blood_oxygen,
-        "timestamp": datetime.utcnow()
+    # Assuming data contains the latest vital signs
+    latest_vitals = {
+        'user_id': user_id,
+        'heart_rate': data.get('heart_rate'),
+        'blood_pressure': data.get('blood_pressure'),
+        'temperature': data.get('temperature'),
+        'blood_oxygen': data.get('blood_oxygen')
     }
-    
-    # Save the new vitals to the database
-    vitals_collection.insert_one(new_vitals)
 
-    return jsonify({"status": "success", "message": "Vitals updated successfully!"})
+    # Save the latest vitals to the database
+    vitals_collection.insert_one(latest_vitals)
+
+    # Generate a health tip based on the latest vitals
+    health_tip = get_health_tip_for_vitals(latest_vitals, date_time)
+
+    # Return the health tip as part of the response
+    return jsonify({
+        'message': 'Vitals updated successfully.',
+        'health_tip': health_tip
+    }), 200
 
 @app.route("/diagnosis")
 def diagnosis():
