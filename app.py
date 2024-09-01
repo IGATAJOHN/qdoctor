@@ -894,16 +894,23 @@ def get_health_tip_for_vitals(latest_vitals, date_time):
     if cache_key in health_tip_cache:
         return health_tip_cache[cache_key]
 
+    # Extract individual vital signs
+    heart_rate = latest_vitals.get('heart_rate')
+    blood_pressure = latest_vitals.get('blood_pressure')
+    temperature = latest_vitals.get('temperature')
+    blood_oxygen = latest_vitals.get('blood_oxygen')
+
     # Create the prompt using the latest vitals
-    vitals_info = f"Heart Rate: {latest_vitals['heart_rate']} bpm, " \
-                  f"Blood Pressure: {latest_vitals['blood_pressure']}, " \
-                  f"Body Temperature: {latest_vitals['temperature']}°F, " \
-                  f"Blood Oxygen: {latest_vitals['blood_oxygen']}%"
+    vitals_info = f"Heart Rate: {heart_rate} bpm, " \
+                  f"Blood Pressure: {blood_pressure}, " \
+                  f"Body Temperature: {temperature}°F, " \
+                  f"Blood Oxygen: {blood_oxygen}%"
 
     messages = [
-        {"role": "system", "content": """You are Quantum Doctor, a healthcare assistant, capable of interpreting vital signs,
-                    make sure to extrapolate useful health insights in the simplest possible way for patients to understand."""},
-        {"role": "user", "content": f"Based on the following vitals, provide a practical and actionable health tip: {vitals_info}."}
+        {"role": "system", "content": """You are Quantum Doctor, a healthcare assistant capable of interpreting vital signs.
+                                          Make sure to extrapolate useful health insights in the simplest possible way for patients to understand. 
+                                          This could be in English, Pidgin, Hausa, Igbo, or Yoruba."""},
+        {"role": "user", "content": f"Based on the following vitals, provide a practical and actionable health tip: {vitals_info}. You can generate this in English or Pidgin English."}
     ]
 
     # Request a response from the OpenAI API
@@ -921,6 +928,7 @@ def get_health_tip_for_vitals(latest_vitals, date_time):
     health_tip_cache[cache_key] = health_tip
 
     return health_tip
+
 @app.route("/messages")
 @login_required
 def messages():
