@@ -914,7 +914,7 @@ def get_health_tip_for_vitals(latest_vitals, date_time):
 
     # Request a response from the OpenAI API
     response = openai_client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o",
         messages=messages,
         max_tokens=100,
         temperature=0.7
