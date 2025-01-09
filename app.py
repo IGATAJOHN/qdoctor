@@ -716,7 +716,7 @@ def chatbot():
 def generate_response(conversation_history):
     try:
         completion = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4-turbo",
             messages=[
                 {
                     "role": "system",
